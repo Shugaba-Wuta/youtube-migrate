@@ -1,0 +1,17 @@
+$secondary: #acedff;
+$success: #c4ff95;
+$warning:#fd823b;
+$light: #4eb9d6;
+$dark: #01232c;
+// 
+$primary: #003A4A;
+$danger: #96950F;
+$info:#007696;
+$white: #e6e8e9;
+$black:#021013;
+$font-family-base: "Montserrat",
+"Poppins";
+$theme-colors: ( "primary": $primary, "danger": $danger);
+$spacer: 1rem !default;
+$spacers: ( 0: 0, 1: $spacer * .25, 2: $spacer * .5, 3: $spacer, 4: $spacer * 1.5, 5: $spacer * 4, ) !default;
+@import "frontend\\static\\bootstrap-5.0.2\\scss\\bootstrap";

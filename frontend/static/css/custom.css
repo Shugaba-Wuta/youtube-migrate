@@ -1,0 +1,221 @@
+@font-face {
+    font-family: Montserrat;
+    src: url(../fonts/Montserrat/Montserrat-VariableFont_wght.ttf);
+}
+
+@font-face {
+    font-family: Poppins;
+    src: url(../fonts/Poppins/Poppins-Medium.ttf);
+}
+
+root {
+    font-family: Montserrat, Poppins !important;
+}
+
+html {
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+*,
+*::after,
+*::before {
+    box-sizing: inherit;
+}
+
+body {
+    background-color: #dcdcdc !important;
+    color: #e6e8e9;
+}
+
+nav ul {
+    font-size: 0.7rem;
+    flex-grow: 0 !important;
+    ;
+}
+
+.w-20 {
+    width: 20% !important
+}
+
+.w-40 {
+    width: 40% !important
+}
+
+.w-30 {
+    width: 30% !important
+}
+
+.w-100 {
+    width: 100% !important
+}
+
+.stroke-1 {
+    stroke-width: 1.5px;
+}
+
+.size-16 {
+    width: 16px;
+    height: 16px;
+}
+
+.size-18 {
+    width: 18px;
+    height: 18px
+}
+
+.size-20 {
+    width: 20px;
+    height: 20px
+}
+
+.size-24 {
+    width: 24px;
+    height: 24px;
+}
+
+.size-38 {
+    width: 38px;
+    height: 38px;
+}
+
+.size-48 {
+    width: 48px;
+    height: 48px;
+}
+
+.emoji-color {
+    fill: #96950F;
+}
+
+.stroke-black {
+    stroke: #00313f;
+}
+
+.opacity-0 {
+    opacity: 0;
+}
+
+svg {
+    color: #e6e8e9 !important;
+}
+
+nav svg:hover {
+    color: #ffc1c1!important;
+}
+
+footer small {
+    opacity: 0.7;
+    font-size: xx-small;
+}
+
+.navbar-toggler:focus,
+.navbar-toggler:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.user-email {
+    margin-right: 1rem;
+    font-size: 0.7rem;
+}
+
+footer>svg {
+    color: black !important
+}
+
+#skipBtn {
+    position: fixed !important;
+    bottom: 10vh !important;
+    right: 5vw !important;
+    z-index: 999 !important;
+    border-width: 2px !important;
+    transition: border 50ms;
+    animation-name: skipBtnAnimatn;
+    animation-duration: 300ms;
+    animation-iteration-count: infinite;
+}
+
+#skipBtn:hover {
+    background-color: #4f4f02 !important;
+    border: 0px !important;
+    animation-name: skipBtnAnimatnStop;
+    animation-duration: 2000ms;
+    animation-iteration-count: 1;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.trim-text {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    /* white-space: nowrap; */
+}
+
+.modal-header,
+.modal-body,
+.modal-footer {
+    padding: 0.25rem !important;
+}
+
+@keyframes skipBtnAnimatnStop {
+    0% {
+        transform: rotate(5deg)
+    }
+    25% {
+        transform: rotate(-4deg)
+    }
+    50% {
+        transform: rotate(-1deg)
+    }
+    100% {
+        transform: rotate(0deg)
+    }
+}
+
+@keyframes skipBtnAnimatn {
+    0% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(5deg);
+    }
+    50% {
+        transform: rotate(0deg);
+    }
+    75% {
+        transform: rotate(-5deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+@media screen and (max-width:480px) {
+     :root {
+        font-size: 14px !important;
+    }
+    #currentPage {
+        display: None
+    }
+    .alert {
+        font-size: 0.75rem !important;
+        padding: 0px !important
+    }
+    .alert svg {
+        display: none;
+    }
+    .alert .btn {
+        font-size: 0.7rem !important;
+        padding: 0 5px !important;
+        border-radius: 0px;
+        border: 0px;
+        line-height: 1 !important;
+    }
+    table {
+        font-size: 12px !important;
+    }
+    td {
+        width: 20%;
+    }
+}

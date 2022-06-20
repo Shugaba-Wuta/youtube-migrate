@@ -1,0 +1,37 @@
+<nav class="navbar  bg-primary fixed-top navbar-text navbar-expand-lg text-white mb-5">
+    <div class="container-xl">
+        <a class="nav-brand" href="#">
+            <img src="static/images/logo-big-migrate.png" alt="logo" width="75" class="d-inline-block align-text-top">
+        </a>
+
+        <!-- Hidden on mobile -->
+        <div class="nav-item mx-auto" id="currentPage">
+            <span class="">Current Section of the web page</span>
+        </div>
+
+        <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><i
+                data-feather="menu" class=""></i>
+        </button>
+
+
+
+        <ul class="navbar-collapse collapse list-unstyled my-auto justify-content-end align-items-end navbar-nav navbar-right" id="navbarSupportedContent">
+            {%if True %}
+            <li class="nav-item my-auto">
+                <img src="static/images/profile.jpeg" alt="profile photo from youtube" width="25" height="25" class="rounded-circle"> <span class="text-xs">semai****ss@**.com</span>
+            </li>
+            {%endif%}
+            <li class="nav-item my-auto">
+                <a href="#" rel="noopener noreferrer" class="nav-link d-flex flex-row-reverse m-0 p-0 ">
+                    {%if True %}
+                    <i data-feather="log-out" class="size-18"></i> <span class="">Logout</span>
+                    {%else%}
+                    <i data-feather="log-in" class="size-18"><span class="">Login</span></i>
+                    {%endif%}
+                </a>
+            </li>
+        </ul>
+
+    </div>
+
+</nav>

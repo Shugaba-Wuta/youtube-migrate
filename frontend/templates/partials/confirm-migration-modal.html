@@ -1,0 +1,25 @@
+{% extends "layout/modal-layout.html" %}
+<!-- Sets the ID of the containing block -->
+{% set modal_id="confirm_migration" %}
+<!--  -->
+{% block modal_title %} Confirm Youtube Subscription Migration {% endblock %}
+<!--  -->
+{% set modal_title_id= modal_id + "_title" %}
+
+<!-- Information about the modal content -->
+{% block modal_body %}
+<p class="small">You are about to add 1256 subscriptions to longuser@gmail.com. </p>
+
+
+
+{% endblock %}
+<!-- Actions cancel/ proceed   -->
+{% block modal_footer %}
+
+<div class="btn-group-small mx-auto">
+
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{modal_id}}">
+        Cancel</button>
+    <button type="button" class="btn btn-primary ms-3 "> Proceed</button>
+</div>
+{% endblock %}

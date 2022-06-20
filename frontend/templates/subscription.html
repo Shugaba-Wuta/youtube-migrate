@@ -1,0 +1,64 @@
+{% extends "layout/base.html" %}
+<!--  -->
+{% block page_title %}All Subscription {% endblock %}
+<!-- content -->
+{%block content%}
+
+<main class="position-relative container-xl text-primary my-5">
+    <h1 class="text-center mt-5" style="margin-top: 5%;"><strong>Migrate YouTube </strong></h1>
+    <form method="POST" action="" class="form form-group container-fluid d-flex flex-column">
+        <table class="table table-responsive table-sm">
+            <caption>All subscribed channels on gmail account</caption>
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">
+                        <label class="form-check-label">
+                            <input type="checkbox" name="selectAll" id="selectAll" class="form-check-input" checked>
+                        </label>
+                    </th>
+                    <th scope="col" class="w-40">Name</th>
+                    <th scope="col" class="w-40">Channel Link</th>
+
+                </tr>
+
+            </thead>
+            <tbody>
+                {% for i in range(9999,10007) %}
+                <tr>
+                    <th scope="row">{{i}}</th>
+                    <td>
+                        <label class="form-check-label">
+                            <input type="checkbox" name="check{{i}}" id="check{{i}}" checked class="form-check-input">
+                        </label>
+                    </td>
+                    <td class="w-40 trim-text" data-bs-trim>Random channel</td>
+                    <td class="w-40 trim-text" data-bs-trim>Random channel Link</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <!-- Setting up my modal for confirming subscription migration -->
+        {% block modal %}{% include "partials/confirm-migration-modal.html" %} {% include "partials/cancel-migration-modal.html" %} {% endblock %}
+        <!--  ID's to 2 different Modals Confirm/ Terminate-->
+        {% set confirm_modal_id="confirm_migration" %}
+        <!--  -->
+        {% set cancel_modal_id="cancel_migration" %}
+
+
+
+
+
+
+        <div class=" btn-group-sm ms-auto d-flex jdustify-content-lg-between ">
+
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{cancel_modal_id}}">Cancel</button>
+            <button type="button" class="btn btn-primary border-primary ms-3" id="proceedBtn" name="proceedBtn" data-bs-toggle="modal" data-bs-target="#{{confirm_modal_id}}">Proceed</button>
+
+        </div>
+
+
+    </form>
+
+</main>
+{%endblock%}

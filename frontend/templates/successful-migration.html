@@ -1,0 +1,32 @@
+{% extends "layout/base.html" %}
+<!--  -->
+{% block page_title %}&#x2705;Migration Successful {% endblock %}
+<!--  -->
+{% block content %}
+
+<!--  ID's to 2 different Modals Confirm/ Terminate-->
+{% set modal_id = "review_modal" %}
+<main class="container-xxl justify-content-center my-auto align-content-center">
+    <div class="card">
+        <div class="card-body text-center">
+            <h1 class="text-center mt-5" style="margin-top: 5%;"><strong>Migration was Successful </strong> &#x1F389; &#x1F4AF;
+                <!-- <span class="size-48">&#x1F389;
+                    &#x1F680; &#x1F4AF;
+                    &#x2705;</span> -->
+            </h1>
+
+
+            <p>You have Successful added N subscription to new_email_account</p>
+            <p> <em> Want to leave a review? Click <a class="btn btn-outline-primary btn-sm" href="#"
+                        rel="noopener noreferrer" role="button" type="button" data-bs-toggle="modal"
+                        data-bs-target="#{{modal_id}}"> <b>Here</b></a>
+                </em>
+            </p>
+        </div>
+
+    </div>
+    <!-- Setting up my modal for confirming subscription migration -->
+    {% block modal %}{% include "partials/review-modal.html" %} {% endblock %}
+
+</main>
+{% endblock %}

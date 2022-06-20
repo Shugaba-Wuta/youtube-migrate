@@ -1,0 +1,51 @@
+{%extends "layout/base.html" %} {%block page_title%}Subscription Migration Tool{%endblock%}
+
+<!-- Content -->
+
+{%block content%}
+<main class="position-relative container-xl text-primary my-5">
+    <!-- Skip content -->
+    <div class="alert alert-info container-fluid bg-light d-flex  border border-danger mt-1">
+        <button type="button" class="btn-close my-auto me-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        <span class="my-auto">
+            <i data-feather="info" class="text-primary small-text"></i>
+            <strong>Info: </strong>To skip the instruction on this tool, <a href="#" role="button"
+                class="btn btn-danger text-white">Click Here</a>
+        </span>
+    </div>
+    <h1 class="fs-1 text-center mt-5" style="margin-top: 5%;"><strong>How To Migrate YouTube Subscription
+        </strong>
+    </h1>
+
+    <div class="card-group container-xl mt-1 mb-1">
+        <div class="card bg-transparent border-0">
+            {%for i in range(1,5)%}
+            <div class="row g-0 my-3">
+                <div class="col-md-5 bg-white d-flex-column ">
+                    <div class="card-header fs-3 text-center">Step {{i}}</div>
+                    <div class="card-body bg-white">
+                        Lorem ipsum dolor sit amet consectetur adipisicing elit. Eum maxime optio dolorem ipsa quisquam corporis recusandae amet nisi expedita quos.
+                    </div>
+
+                    <div class="footer small m-3">
+                        <hr> Lorem, ipsum dolor sit amet consectetur adipisicing elit. Repellat quis, totam quas pariatur delectus in.
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <img src="static/images/screenshot.png" alt="step {{i}} picture" width="100%">
+                </div>
+            </div>
+            {%endfor%}
+
+        </div>
+
+    </div>
+    <div class=" d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn">
+        <i data-feather="play" class="stroke-1"></i> <span class="m-auto">Start</span>
+    </div>
+
+
+
+
+</main>
+{%endblock%}
