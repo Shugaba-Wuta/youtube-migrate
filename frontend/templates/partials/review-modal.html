@@ -11,22 +11,22 @@
 
 <!-- Actions cancel/ proceed   -->
 {% block modal_footer %}
-<form action="/review" class="mt-3">
+<form action="/review" method="POST" class="mt-3">
     <div class="form-text mb-1">Rate this tool</div>
     <div class="d-flex-column" id="review-emoji">
         <label class="form-radio-label">
-            <input type="radio" class="form-radio opacity-0" id="sad-emoji" name="review_radio" value="sad" />
+            <input type="radio" class="form-radio opacity-0" id="sad-emoji" name="review_radio" value=-1 />
             <i data-feather="frown" class="size-38  stroke-black stroke-1"></i>
         </label>
 
 
         <label class="form-radio-label">
-            <input type="radio" class="form-radio opacity-0" id="meh-emoji" name="review_radio" value="neutral" />
+            <input type="radio" class="form-radio opacity-0" id="meh-emoji" name="review_radio" value=0 />
             <i data-feather="meh" class="size-38 stroke-black  stroke-1"></i>
         </label>
 
         <label class="form-radio-label">
-            <input type="radio" class="form-radio opacity-0" id="smile-emoji" name="review_radio" value="happy" />
+            <input type="radio" class="form-radio opacity-0" id="smile-emoji" name="review_radio" value=1 />
             <i data-feather="smile" class="size-38 stroke-black stroke-1"></i>
         </label>
         <!-- <p>I will display &#x1f44b&#x1F3FF;</p> -->

@@ -9,8 +9,8 @@
         <button type="button" class="btn-close my-auto me-3" data-bs-dismiss="alert" aria-label="Close"></button>
         <span class="my-auto">
             <i data-feather="info" class="text-primary small-text"></i>
-            <strong>Info: </strong>To skip the instruction on this tool, <a href="#" role="button"
-                class="btn btn-danger text-white">Click Here</a>
+            <strong>Info: </strong>To skip the instruction on this tool, <button onclick="login('fetch')" role="button"
+                class="btn btn-danger text-white">Click Here</button>
         </span>
     </div>
     <h1 class="fs-1 text-center mt-5" style="margin-top: 5%;"><strong>How To Migrate YouTube Subscription
@@ -40,9 +40,9 @@
         </div>
 
     </div>
-    <div class=" d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn">
+    <button class="d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn" onclick="login('fetch')">
         <i data-feather="play" class="stroke-1"></i> <span class="m-auto">Start</span>
-    </div>
+    </button>
 
 
 

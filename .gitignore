@@ -158,4 +158,5 @@ cython_debug/
 app requirements.txt 
 .vscode
 .env
-gooogle_api_client_secret.json
+google_api_client_secret.json
+client_secret*

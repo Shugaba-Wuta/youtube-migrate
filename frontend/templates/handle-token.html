@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+</head>
+
+<body>
+    <input type="text" hidden readonly id="token_holder" value="{{token}}">
+    <script>
+        const token = document.getElementById("token_holder").value;
+        console.log(token);
+        if (token) {
+            token_string = JSON.stringify(token)
+            console.log(typeof(token) === typeof(token_string))
+            window.sessionStorage.setItem("access_token", token_string);
+            document.location.replace("/{{redirect}}")
+        }
+        JSON
+    </script>
+
+
+</body>
