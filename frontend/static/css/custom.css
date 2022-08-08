@@ -1,4 +1,4 @@
-@font-face {
+/* @font-face {
     font-family: Montserrat;
     src: url(../fonts/Montserrat/Montserrat-VariableFont_wght.ttf);
 }
@@ -6,7 +6,7 @@
 @font-face {
     font-family: Poppins;
     src: url(../fonts/Poppins/Poppins-Medium.ttf);
-}
+} */
 
 root {
     font-family: Montserrat, Poppins !important;
@@ -109,7 +109,7 @@ nav ul {
     height: 48px;
 }
 
-.emoji-color {
+[data-checked-emoji='true'] {
     fill: #96950F;
 }
 
@@ -196,6 +196,10 @@ footer>svg {
 .modal-body,
 .modal-footer {
     padding: 0.25rem !important;
+}
+
+main {
+    height: 100vh;
 }
 
 @keyframes skipBtnAnimatnStop {

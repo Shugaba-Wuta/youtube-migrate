@@ -17,10 +17,9 @@
     <div class="card">
         <div class="card-body">
             <div class="card-title">
-                <h1 class="fw-bold"> {{error["error_code"]}} ERROR OCCURED </h1>
-                <p class="card-text">
-                    {{error["details"]}} Here goes the error
-
+                <h1 class="fw-bold fs-1">Encountered {{status_code}} Error </h1>
+                <p class="card-text fs-4">
+                    {{msg}}
                 </p>
                 <a href="/">Go back to Home Page</a>
 

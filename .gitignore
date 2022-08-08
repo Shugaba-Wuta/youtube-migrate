@@ -160,3 +160,5 @@ app requirements.txt
 .env
 google_api_client_secret.json
 client_secret*
+*.db
+*/modification.scss.css

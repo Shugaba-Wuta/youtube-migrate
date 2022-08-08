@@ -1,4 +1,4 @@
-const POSSIBLE_REDIRECTS = ["fetch", "login", "post"]
+const POSSIBLE_REDIRECTS = ["subscriptions/fetch", "login", "", "subscriptions/post"]
 const login = (redirect) => {
     var redirect_url = redirect.toString().trim().toLowerCase()
         //redirect validation. 
@@ -9,7 +9,6 @@ const login = (redirect) => {
     if (access_token === null) {
         return document.location.href = "/login?redirect=" + redirect_url
     }
-    pattern = /^([a-zA-Z0-9_=])\.([a-zA-Z0-9_=])\.([a-zA-Z0-9_\-\+\/=])/
 
     return document.location.href = "/login?logged_in=true&redirect=" + redirect_url
 
@@ -29,5 +28,5 @@ const logout = () => {
             window.sessionStorage.removeItem("access_token")
             document.location.href = ("/")
         }
-    }).catch((reject) => { console.log(reject) })
+    }).catch((reject) => { throw reject })
 }

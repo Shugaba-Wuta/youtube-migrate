@@ -1,12 +1,12 @@
 {% extends "layout/base.html" %}
 <!--  -->
-{% block page_title %}All Subscription {% endblock %}
+{% block page_title %}All Youtube Subscription {% endblock %}
 <!-- content -->
 {%block content%}
 
 <main class="position-relative container-xl text-primary my-5">
     <h1 class="text-center mt-5" style="margin-top: 5%;"><strong>Migrate YouTube </strong></h1>
-    <form method="POST" action="" class="form  d-flex flex-column table-responsive-sm">
+    <div class="form  d-flex flex-column table-responsive-sm">
         <table class="table table-hover table-sm">
             <caption>All subscribed channels on gmail account</caption>
             <thead>
@@ -14,7 +14,7 @@
                     <th scope="col" class="">
                         <label class="form-check-label d-flex ">
                             <input type="checkbox" name="selectAll" id="selectAll" class="form-check-input me-2"
-                                checked>
+                                autocomplete="off" checked>
                             <span>#</span>
                         </label>
                     </th>
@@ -27,17 +27,20 @@
             </thead>
             <tbody>
                 {% for i in range(1,subscriptions["items"]|count)%}
-                <tr class="">
+                <tr data-youtube-channel-id='{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}'>
                     <th scope="row" class="">
                         <label class="form-check-label  d-flex">
-                            <input type="checkbox" name="check-{{i}}" id="check-{{i}}" checked
-                                class="form-check-input me-2" data-checked="true">
+                            <input type="checkbox" name="check-{{i}}" id="check-{{i}}" checked autocomplete="off"
+                                class="form-check-input me-2" data-checked="true"
+                                data-youtube-channel-id='{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}'>
                             <span> {{i}} </span>
                         </label>
                     </th>
 
                     <td class="single-line" data-bs-trim>
-                        <a href='https://www.youtube.com/channel/{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}' target="_top" class="d-inline-block">{{subscriptions["items"][i-1]["snippet"]["title"]}}</a>
+                        <a href='https://www.youtube.com/channel/{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}' target="_top" class="d-inline-block">{{subscriptions["items"][i-1]["snippet"]["title"]}}
+
+                        </a>
                     </td>
                     <td class="trim-text description" data-bs-trim>
                         {{subscriptions["items"][i-1]["snippet"]["description"]}}
@@ -46,45 +49,91 @@
                 {% endfor %}
             </tbody>
         </table>
+        <!-- Setting up my modal for confirming subscription migration -->
+        {% block modal %}{% include "partials/confirm-migration-modal.html" %} {% include "partials/cancel-migration-modal.html" %} {% endblock %}
+        <!--  ID's to 2 different Modals Confirm/ Terminate-->
+        {% set confirm_modal_id="confirm_migration" %}
+        <!--  -->
+        {% set cancel_modal_id="cancel_migration" %}
 
-        <div class=" btn-group ms-auto d-flex jdustify-content-lg-between ">
+        <div class=" btn-group ms-auto d-flex ">
 
             <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{cancel_modal_id}}">Cancel</button>
             <button type="button" class="btn btn-primary border-primary ms-3" id="proceedBtn" name="proceedBtn" data-bs-toggle="modal" data-bs-target="#{{confirm_modal_id}}">Proceed</button>
 
         </div>
-
-
-
+    </div>
+    <form id="postSubscription" method="POST" action="/subscriptions/post" class="form position-relative d-inline end-100 " aria-hidden="true" hidden>
+        <input type="text" id="subscriptions-field" name="subscriptions">
     </form>
-    <!-- Setting up my modal for confirming subscription migration -->
-    {% block modal %}{% include "partials/confirm-migration-modal.html" %} {% include "partials/cancel-migration-modal.html" %} {% endblock %}
-    <!--  ID's to 2 different Modals Confirm/ Terminate-->
-    {% set confirm_modal_id="confirm_migration" %}
-    <!--  -->
-    {% set cancel_modal_id="cancel_migration" %}
+
 
 </main>
 <script>
-    // on click any checkbox toggle selectAll 
-    var selectAllCheckbox = document.getElementById("selectAll");
-    selectAllCheckbox.addEventListener("change", () => {
-        var allCheckboxes = document.querySelectorAll("[data-checked]")
-        var activatedCheckboxes = document.querySelectorAll("[data-checked='true']")
-        if (allCheckboxes.length === activatedCheckboxes.length) {
-            allCheckboxes.forEach((item) => {
-                item.checked = false
-                item.dataset.checked = "false"
+    // Clicking the checkbox in thead should toggle other checkboxes. 
+    let selectAllCheckbox = document.getElementById("selectAll");
+    let allCheckboxes = document.querySelectorAll("[data-checked]")
 
+    selectAllCheckbox.addEventListener("click", () => {
+        let activatedCheckboxes = document.querySelectorAll("[data-checked=true]")
+        if (selectAllCheckbox.checked) {
+            allCheckboxes.forEach((item) => {
+                item.checked = true;
+                item.dataset.checked = true;
             })
         } else {
             allCheckboxes.forEach((item) => {
-                item.checked = true
-                item.dataset.checked = "true"
+                item.checked = false;
+                item.dataset.checked = false;
 
             })
         }
+    })
 
+    allCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                checkbox.dataset.checked = true
+            } else {
+                checkbox.dataset.checked = false
+            }
+
+            let currentlySelectedSubscription = document.querySelectorAll('[data-checked = true]')
+            if (allCheckboxes.length === currentlySelectedSubscription.length) {
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.checked = false;
+            }
+
+
+        })
+    })
+
+
+    const proceedBtn = document.getElementById("proceedBtn")
+    proceedBtn.addEventListener("click", prepareSelectedChannels)
+
+    function prepareSelectedChannels() {
+        let channelIdList = Array()
+        const currentlySelectedSubscription = document.querySelectorAll("[data-checked = true]")
+        currentlySelectedSubscription.forEach((item) => {
+            if (item.checked) channelIdList.push(item.dataset.youtubeChannelId)
+        })
+        const requestDetailsContainer = document.getElementById("confirmSubscriptionModalText")
+        requestDetailsContainer.innerHTML = "<b>" +
+            currentlySelectedSubscription.length.toString() + "</b> Youtube channel(s) have been selected from " +
+            document.querySelector('[data-email]').dataset.email.toString() +
+            "<br><br>Click <emphasis>'Continue'</emphasis> to  Sign-in into to the new Youtube account."
+        window.sessionStorage.setItem("chanenlIdList", channelIdList.toString())
+
+    }
+
+    let postSub = document.getElementById("postSubscription");
+    postSub.addEventListener("submit", (event) => {
+        event.preventDefault()
+        const channelIdList = window.sessionStorage.getItem("chanenlIdList");
+        document.getElementById("subscriptions-field").value = channelIdList
+        postSub.submit()
 
     })
 </script>

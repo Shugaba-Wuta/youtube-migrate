@@ -8,7 +8,7 @@
 
 <!-- Information about the modal content -->
 {% block modal_body %}
-<p class="small">You are about to add 1256 subscriptions to longuser@gmail.com. </p>
+<p class="small" id="confirmSubscriptionModalText">Default</p>
 
 
 
@@ -20,6 +20,6 @@
 
     <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{modal_id}}">
         Cancel</button>
-    <button type="button" class="btn btn-primary ms-3 "> Proceed</button>
+    <input type="submit" class="btn btn-primary ms-3 " form="postSubscription" value="Continue">
 </div>
 {% endblock %}
