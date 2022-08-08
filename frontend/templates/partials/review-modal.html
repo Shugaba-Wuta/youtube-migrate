@@ -11,29 +11,29 @@
 
 <!-- Actions cancel/ proceed   -->
 {% block modal_footer %}
-<form action="/review" class="mt-3">
+<form action="/review" method="POST" class="mt-3 mx-1">
     <div class="form-text mb-1">Rate this tool</div>
     <div class="d-flex-column" id="review-emoji">
         <label class="form-radio-label">
             <input type="radio" class="form-radio opacity-0" id="sad-emoji" name="review_radio" value="sad" />
-            <i data-feather="frown" class="size-38  stroke-black stroke-1"></i>
+            <i data-feather="frown" class="size-38  stroke-black stroke-1" data-checked-emoji="false"></i>
         </label>
 
 
         <label class="form-radio-label">
-            <input type="radio" class="form-radio opacity-0" id="meh-emoji" name="review_radio" value="neutral" />
-            <i data-feather="meh" class="size-38 stroke-black  stroke-1"></i>
+            <input type="radio" class="form-radio opacity-0" id="neutral-emoji" name="review_radio" value="neutral"
+                checked autocomplete="false" />
+            <i data-feather="meh" class="size-38 stroke-black  stroke-1" data-checked-emoji="true"></i>
         </label>
 
         <label class="form-radio-label">
             <input type="radio" class="form-radio opacity-0" id="smile-emoji" name="review_radio" value="happy" />
-            <i data-feather="smile" class="size-38 stroke-black stroke-1"></i>
+            <i data-feather="smile" class="size-38 stroke-black stroke-1" data-checked-emoji="false"></i>
         </label>
-        <!-- <p>I will display &#x1f44b&#x1F3FF;</p> -->
 
     </div>
     <label class="form-label" for="review_text"> </label>
-    <textarea class="form-control" name="review_text" id="review_text" placeholder="We are all ears " rows="3"></textarea>
+    <textarea class="form-control" name="review_text" id="review_text" placeholder="In at least 5 words, say something..." rows="5"></textarea>
     <div class="btn-group-small mt-3">
         <button type="submit" class="btn btn-primary disabled" id="submit_review_button"> Submit </button>
     </div>
@@ -41,38 +41,28 @@
 
 
 </form>
-
-<script>
-    var review_radio = document.getElementsByName("review_radio");
-    var arr_review_radio = Array.from(review_radio)
-    review_radio.forEach((radio) => {
-        radio.addEventListener("change", () => {
-            var filled_emoji = document.getElementsByClassName("emoji-color");
-            var array_filled_emoji = Array.from(filled_emoji)
-            if (array_filled_emoji.length > 0) {
-                array_filled_emoji.forEach((occurence) => {
-                    occurence.classList.remove("emoji-color");
-                })
-
-            }
-            //Applies style to selected radio button
-            var sibling_element = radio.nextElementSibling;
-            sibling_element.classList.add("emoji-color")
-
-            //Removes class disabled until radio buttons are checked
-            var any_radio_checked = arr_review_radio.filter((element) => {
-                return element.checked
-            })
-            if (any_radio_checked.length > 0) {
-
-                var review_button = document.getElementById("submit_review_button")
-                if (review_button) {
-                    review_button.classList.remove("disabled");
-                }
-            }
+<script type="text/javascript">
+    //Control the emoji fill colors. 
+    let reviewEmoji = document.getElementsByName("review_radio");
+    reviewEmoji.forEach((emoji) => {
+        emoji.addEventListener("click", () => {
+            let currentlyFilledEmoji = document.querySelector("[data-checked-emoji = true]")
+            currentlyFilledEmoji.dataset.checkedEmoji = false
+            emoji.nextElementSibling.dataset.checkedEmoji = true
         })
+    })
 
 
+    //Enable submit button after the user types certain character length in the textarea
+    let textArea = document.getElementById("review_text");
+    textArea.addEventListener("input", () => {
+        let wordsTextArea = textArea.value.trim().split(" ").filter(String)
+        if (wordsTextArea.length >= 5) {
+            document.getElementById("submit_review_button").classList.remove("disabled")
+        } else {
+            document.getElementById("submit_review_button").classList.add("disabled")
+        }
     })
 </script>
+
 {% endblock %}

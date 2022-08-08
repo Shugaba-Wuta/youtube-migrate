@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+</head>
+
+<body>
+    <input type="text" hidden readonly id="token_holder" value="{{token}}">
+    <script>
+        const token = document.getElementById("token_holder").value;
+        if (token) {
+            token_string = JSON.stringify(token)
+            window.sessionStorage.setItem("access_token", token_string);
+        }
+    </script>
+
+
+    {%if redirect == "subscriptions/post" %}
+    <form action="/subscriptions/post" method="post" id="hidden">
+        <input type="hidden" name="hidden" aria-hidden="true" hidden>
+    </form>
+    <script type="text/javascript">
+        const form = document.getElementById("hidden")
+        form.submit()
+    </script>
+    {%else%}
+    <script type="text/javascript">
+        document.location.replace("{{redirect}}")
+    </script>
+    {%endif%}
+</body>

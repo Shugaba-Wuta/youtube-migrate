@@ -1,4 +1,4 @@
-{%extends "layout/base.html" %} {%block page_title%}Subscription Migration Tool{%endblock%}
+{%extends "layout/base.html" %} {%block page_title%}Youtube Subscription Migration Tool{%endblock%}
 
 <!-- Content -->
 
@@ -9,8 +9,8 @@
         <button type="button" class="btn-close my-auto me-3" data-bs-dismiss="alert" aria-label="Close"></button>
         <span class="my-auto">
             <i data-feather="info" class="text-primary small-text"></i>
-            <strong>Info: </strong>To skip the instruction on this tool, <a href="#" role="button"
-                class="btn btn-danger text-white">Click Here</a>
+            <strong>Info: </strong>To skip the instruction on this tool, <button onclick="login('subscriptions/fetch')"
+                role="button" class="btn btn-danger text-white">Click Here</button>
         </span>
     </div>
     <h1 class="fs-1 text-center mt-5" style="margin-top: 5%;"><strong>How To Migrate YouTube Subscription
@@ -32,7 +32,7 @@
                     </div>
                 </div>
                 <div class="col-md-7">
-                    <img src="static/images/screenshot.png" alt="step {{i}} picture" width="100%">
+                    <img src=" {{url_for('static', path='images/screenshot.png')}}" alt="step {{i}} picture" width="100%">
                 </div>
             </div>
             {%endfor%}
@@ -40,9 +40,9 @@
         </div>
 
     </div>
-    <div class=" d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn">
+    <button class="d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn" onclick="login('subscriptions/fetch')">
         <i data-feather="play" class="stroke-1"></i> <span class="m-auto">Start</span>
-    </div>
+    </button>
 
 
 
