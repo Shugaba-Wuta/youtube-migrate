@@ -64,22 +64,6 @@ if SESSIONMIDDLEWARE_SECRET_KEY is None:
 
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
 app.add_middleware(GZipMiddleware, minimum_size=2)
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["http://localhost:5333"],
-#     allow_credentials=True,
-#     allow_methods=[
-#         "GET",
-#         "POST",
-#         "OPTIONS",
-#     ],  # include additional methods as per the application demand
-#     allow_headers=[
-#         "Access-Control-Allow-Headers",
-#         "Content-Type",
-#         "Authorization",
-#         "Access-Control-Allow-Origin",
-#     ],
-# )
 
 
 templates = Jinja2Templates(directory=f"{BASE_PATH}/templates")
