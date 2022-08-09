@@ -341,4 +341,4 @@ async def review_modal(
     db_main.store_user_review(
         db=db, review_radio=review_radio, review_text=review_text, email=email
     )
-    return {}
+    return templates.TemplateResponse("completed-review.html", {"request": request})
