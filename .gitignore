@@ -161,4 +161,4 @@ app requirements.txt
 google_api_client_secret.json
 client_secret*
 *.db
-*modification.scss.css
+frontend/static/css/modification.scss.css
