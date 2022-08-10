@@ -26,6 +26,7 @@ from oauthlib.oauth2 import OAuth2Error
 import json
 import httpx
 import urllib.parse
+from typing import Union, List
 from sqlalchemy.orm import Session
 from googleapiclient.errors import *
 
@@ -109,7 +110,7 @@ async def handle_421_exceptions(request, exc):
 async def handle_422_exceptions(request, exc):
     return templates.TemplateResponse(
         "error.html",
-        {"request": request, "status_code": 422, "msg": "2Unprocessable Entity"},
+        {"request": request, "status_code": 422, "msg": "Unprocessable Entity"},
     )
 
 
@@ -117,7 +118,7 @@ async def handle_422_exceptions(request, exc):
 async def handle_405_exceptions(request, exc):
     return templates.TemplateResponse(
         "error.html",
-        {"request": request, "status_code": 405, "msg": "Method is not Allowed"},
+        {"request": request, "status_code": 405, "msg": "Method not Allowed"},
     )
 
 
@@ -151,7 +152,7 @@ async def login_with_google(
 
 @app.get("/token", response_class=RedirectResponse)
 async def get_permission(
-    request: Request, redirect: str | None = None, db: Session = Depends(get_db)
+    request: Request, redirect: Union[str , None] = None, db: Session = Depends(get_db)
 ):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
@@ -193,7 +194,7 @@ async def get_permission(
 
 @app.get("/handle-token", response_class=HTMLResponse)
 async def redirect_to_handle_token_page(
-    request: Request, jwt_token: str, redirect: str | None = None
+    request: Request, jwt_token: str, redirect: Union[str , None]= None
 ):
     request.session["token"] = jwt_token
     valid_url = await is_redirect_url_valid(redirect)
@@ -241,7 +242,7 @@ async def fetch_all_subscriptions(request: Request):
 
 @app.post("/subscriptions/post", response_class=HTMLResponse)
 async def post_all_subscriptions(
-    request: Request, subscriptions: str | None = Body(default=None)
+    request: Request, subscriptions: Union[str , None] = Body(default=None)
 ):
     """Get credentials for the destination account and add sunscriptions"""
     destination_account_logged_in = request.session.get(
@@ -289,7 +290,7 @@ async def post_all_subscriptions(
         """The user has not signed into the destination account.
         The session data destination_account_logged_in is set only in /logout"""
         if subscriptions.startswith("subscriptions="):
-            subscriptions = subscriptions.removeprefix("subscriptions=")
+            subscriptions = subscriptions.replace("subscriptions=", "")# removeprefix("subscriptions=")
         request.session["subscription-list"] = urllib.parse.unquote(subscriptions)
         return RedirectResponse(
             url=f"/logout?redirect=subscriptions/post",

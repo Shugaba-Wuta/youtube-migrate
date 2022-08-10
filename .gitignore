@@ -162,3 +162,4 @@ google_api_client_secret.json
 client_secret*
 *.db
 frontend/static/css/modification.scss.css
+.python-version

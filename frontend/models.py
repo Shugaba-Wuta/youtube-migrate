@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Union, List
 
 
 class User(BaseModel):
@@ -18,9 +19,9 @@ class UserInfo(User):
     verified_email: bool
     name: str
     given_name: str
-    family_name: str | None = None
-    locale: str | None = None
-    hd: str | None = None
+    family_name: Union[str , None] = None
+    locale: Union[str , None] = None
+    hd: Union[str , None]= None
 
 
 class Review(BaseModel):
@@ -37,7 +38,7 @@ class GoogleCredential(BaseModel):
     refresh_token: str
     token_uri: str
     expiry: str
-    scopes: list[str] = ["https://www.googleapis.com/auth/youtube"]
+    scopes: List[str] = ["https://www.googleapis.com/auth/youtube"]
 
 
 class CompleteGoogleCredential(GoogleCredential):
