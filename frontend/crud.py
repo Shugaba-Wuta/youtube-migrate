@@ -88,6 +88,9 @@ async def handle_422_exceptions(request, exc):
         "error.html",
         {"request": request, "status_code": 422, "msg": "Unprocessable Entity"},
     )
+@app.exception_handler(Exception)
+async def generic_response(request, exc): 
+    return templates.TemplateResponse("error.html", {"request": request, "status_code": 404, "msg": "Encountered an error, while processing request. Kindly Logout and start again."})
 
 
 @app.exception_handler(404)
