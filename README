@@ -1,1 +1,23 @@
-This project wants to create a tool to help people migrate account YouTube Subscription from an old YouTube account to a new one. 
+#Migrate YouTube Data
+This project aims to make migrating from one YouTube account to (a new) account as easy as possible. 
+Project is built using FastAPI (Python v3.8.6) library, Google OAuth2 scheme and Bootstrap (v5.0.2). 
+
+
+To run project: 
+Clone (or fork and clone) project. 
+Access Google cloud console and create project a project. 
+Create an OAuth2 key and add the redirect URLs http://localhost:5333/token?redirect="subscriptions/post" http://localhost:5333/token?redirect="subscriptions/fetch"
+Next, download the client secret from Google cloud console and add rename it to client_secret.json
+Create a .env file and set the following parameters: 
+   OAUTHLIB_INSECURE_TRANSPORT=1
+  OAUTHLIB_RELAX_TOKEN_SCOPE=1
+  REDIRECT_URI="http://localhost:5333/token"
+  MIDDLEWARE_SECRET_KEY=add_middleware_secret
+  JWT_SECRET_KEY=add_jwt_secret_key
+  TOKEN_URI=https://oauth2.googleapis.com/token
+  JWT_ALGORITHM=add_jwt_algorithm
+  ONLINE=False
+Create a virtualenv and activate it.
+Install all the dependencies using `pip install -r requirements.txt` 
+In the root directory of the application run `uvicorn main:app --reload host="127.0.0.1" post=5333` to start the server. 
+
