@@ -32,7 +32,7 @@
                     </div>
                 </div>
                 <div class="col-md-7">
-                    <img src=" {{url_for('static', path='images/screenshot.png')}}" alt="step {{i}} picture" width="100%">
+                    <img src="{{url_for('static', path='images/screenshot.png')}}" alt="step {{i}} picture" width="100%">
                 </div>
             </div>
             {%endfor%}
@@ -40,7 +40,6 @@
         </div>
 
     </div>
-    <p> This is was intentional url: {{url_for('static', path='images/screenshot.png')}}</p>
     <button class="d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn" onclick="login('subscriptions/fetch')">
         <i data-feather="play" class="stroke-1"></i> <span class="m-auto">Start</span>
     </button>
