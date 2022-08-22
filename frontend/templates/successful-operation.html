@@ -1,0 +1,122 @@
+{% extends "layout/base.html" %}
+<!--  -->
+{% block page_title %}{{entity}} Migration {% endblock %}
+<!--  -->
+{% block content %}
+
+<!--  ID's to 2 different Modals Confirm/ Terminate-->
+{% set modal_id = "review_modal" %}
+<main class="container-xxl justify-content-center my-auto align-content-center text-primary">
+    <div class="card">
+        <div class="card-body text-center">
+            <h1 class=" fs-3 mt-5" style="margin-top: 5%;"><strong>{{entity}} Migration Report for {{email}} </strong>
+            </h1>
+            <!-- Acordion that displays successful {{entity|lower}} opertaion  -->
+            {% if (total_operations - number_of_failed_operations)>0 %}
+            <div class="acordion container-sm my-3">
+                <div class="accordion-item">
+                    <h6 class="accordion-header" id="successful-{{entity|lower}}-migration">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#successful-details" aria-expanded="true" aria-controls="successful-details">
+                            <p>
+                                <b>&#9989; {{total_operations - number_of_failed_operations}} {{entity}} migration
+                                    completed. See all.
+                                </b>
+                            </p>
+                        </button>
+                    </h6>
+                    <div id="successful-details" class="accordion-collapse collapse " aria-labelledby="successful-{{entity|lower}}-migration" data-bs-parent="#successful-details">
+                        <ul class=" accordion-body list-unstyled">
+                            <li class="row">
+                                <div class="col trim-text text-start"> {{entity|upper}}</div>
+                            </li>
+                            {%for resource_id in successful_operations%}
+                            <li class="row">
+                                <div class="col trim-text text-start" data-resource-id="{{resource_id}}" data-resource-type="{{entity}}">
+                                    {{resource_id}}
+                                </div>
+                            </li>
+                            {%endfor%}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Acordion that displays failed operations.  -->
+            {% if number_of_failed_operations> 0 %}
+            <div class="acordion container-sm my-3">
+                <div class="accordion-item">
+                    <h6 class="accordion-header" id="failed-{{entity|lower}}-migration">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#failed-details" aria-expanded="true" aria-controls="failed-details">
+                            &#x26A0;&#xFE0F; {{number_of_failed_operations}} {{entity}} migration failed. See all.
+                        </button>
+                    </h6>
+                    <div id="failed-details" class="accordion-collapse collapse " aria-labelledby="failed-{{entity|lower}}-migration" data-bs-parent="#failed-details">
+                        <ul class=" accordion-body list-unstyled">
+                            <li class="row">
+                                <div class="col trim-text text-start"> RESOURCE TITLE</div>
+                                <div class="col trim-text text-start">REASON</div>
+                            </li>
+                            {%for ops in failed_operations%}
+                            <li class="row">
+                                <div class="col trim-text text-start" data-resource-id="{{ops.resource_id}}" data-resource-type="{{entity}}">
+                                    {{ops.resource_id}}
+                                </div>
+                                <div class="col trim-text text-start">{{ops.failure_reason}}</div>
+                            </li>
+                            {%endfor%}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            {%endif%}
+            <p class="d-inline-flex align-items-end mx-auto mb-5">
+                <em><u>Want to leave a review? Click to </u></em>
+                <a class="btn btn-outline-primary btn-sm ms-1" rel="noopener noreferrer" role="button" type="button" data-bs-toggle="modal" data-bs-target="#{{modal_id}}"> <b>Leave a Review</b></a>
+            </p>
+        </div>
+
+    </div>
+    <!-- Setting up my modal for review after migration -->
+    {% block modal %}{% include "partials/review-modal.html" %} {% endblock %}
+
+</main>
+<script type="text/javascript">
+    const RESOURCETYPE = {
+        "Subscriptions": "channels",
+        "Playlists": "playlists",
+        "Videos": "videos",
+    }
+    console.log("JS is available.");
+    let allResources = document.querySelectorAll("[data-resource-id]")
+    allResources.forEach(async(resource) => {
+        let resourceType = RESOURCETYPE[`${resource.dataset.resourceType.toString()}`]
+        let resourceId = resource.dataset.resourceId.toString()
+
+        url = `https://www.googleapis.com/youtube/v3/${resourceType}?id=${resourceId}&part=snippet&key={{GOOGLE_API_KEY}}`
+        await fetch(url, {
+                method: "GET"
+            })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Response was unsuccessful`)
+                };
+                return response.json()
+            }).then((json_response) => {
+                //check if response contains an `items`
+                if (json_response.items && json_response.items.length > 0) {
+                    //Manipulate corresponding HTML col by changing the innerHTML to title from API call. 
+                    let title = json_response.items[0].snippet.title;
+                    console.log(`Title: ${title}`);
+                    document.querySelector(`[data-resource-id = ${resourceId}]`).innerHTML = title;
+                }
+            }).catch((error) => {
+                console.log(`Response is ok, but Promise was caught! Fetching YouTube resource for YouTube ${resourceType} with ID: ${resourceId} but failed with status code of: ${error.status}`)
+            })
+    })
+
+    //fetch("")
+</script>
+
+{% endblock %}

@@ -19,9 +19,9 @@ class UserInfo(User):
     verified_email: bool
     name: str
     given_name: str
-    family_name: Union[str , None] = None
-    locale: Union[str , None] = None
-    hd: Union[str , None]= None
+    family_name: Union[str, None] = None
+    locale: Union[str, None] = None
+    hd: Union[str, None] = None
 
 
 class Review(BaseModel):
