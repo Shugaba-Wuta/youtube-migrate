@@ -1,15 +1,12 @@
 # Fastapi and related packages
 from fastapi import (
-    Body,
     FastAPI,
     Depends,
     Form,
     HTTPException,
     Query,
     Request,
-    status,
 )
-from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
@@ -18,16 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
 # Other packages
-import sass
 import os
-from pathlib import Path
-from dotenv import load_dotenv
 from google_auth_oauthlib.flow import Flow
 from oauthlib.oauth2 import OAuth2Error
 import json
-import httpx
-import urllib.parse
-from typing import Union, List
+from typing import Union
 from sqlalchemy.orm import Session
 from googleapiclient.errors import *
 
@@ -35,46 +27,49 @@ from googleapiclient.errors import *
 from frontend.models import (
     CompleteGoogleCredential,
 )
+from .config import templates
+
 from frontend.utilities import (
     is_token_valid,
     start_google_flow,
     make_jwt_from_credential,
-    get_all_user_subscription,
-    get_authenticated_build,
     is_redirect_url_valid,
-    decode_user_token,
-    post_user_subscription,
     get_user_email_info,
+    get_email_and_picture_from_session, 
+    retire_token
 )
+from .subscriptions import subscription_router
 
 # Imports from database
 from database import database, models, main as db_main
 from database.database import get_db
 
 models.Base.metadata.create_all(bind=database.engine)
-# Configuring app
-load_dotenv()
-
 app = FastAPI()
+app.include_router(subscription_router)
+
+
 SESSIONMIDDLEWARE_SECRET_KEY = os.environ.get("MIDDLEWARE_SECRET_KEY")
-BASE_PATH = Path(__file__).parent.resolve()
 GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333/token")
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
     raise ValueError("Set the API_KEY vairable is None")
-
+app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+# Adding middlewares to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
 app.add_middleware(GZipMiddleware, minimum_size=2)
-
-
-templates = Jinja2Templates(directory=f"{BASE_PATH}/templates")
-app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
-
-# Setting up Sass to modify bootstrap variables
-sass.compile(dirname=("frontend/static/sass", "frontend/static/css"))
-
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+#
+###ADDING ALL EXCEPTIONS TO APP
+#
+# class based exceptions
 @app.exception_handler(HTTPException)
 async def handle_all_raised_HTTPEexceptions(request, exc: HTTPException):
     return templates.TemplateResponse(
@@ -89,11 +84,21 @@ async def handle_422_exceptions(request, exc):
         "error.html",
         {"request": request, "status_code": 422, "msg": "Unprocessable Entity"},
     )
+
+
 @app.exception_handler(Exception)
-async def generic_response(request, exc): 
-    return templates.TemplateResponse("error.html", {"request": request, "status_code": 404, "msg": "Encountered an error, while processing request. Kindly Logout and start again."})
+async def generic_response(request, exc):
+    return templates.TemplateResponse(
+        "error.html",
+        {
+            "request": request,
+            "status_code": 404,
+            "msg": "Encountered an error, while processing request. Kindly Logout and start again.",
+        },
+    )
 
 
+# error code based exceptions.
 @app.exception_handler(404)
 async def handle_404_exceptions(request, exc):
     return templates.TemplateResponse(
@@ -126,26 +131,15 @@ async def handle_405_exceptions(request, exc):
     )
 
 
+##ROOT URL OPERATIONS
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    user_info = request.session.get("user_info", (None, None))
-    email, profile_picture = None, None
-    if user_info != (None, None):
-        email = user_info[0]
-        profile_picture = user_info[1]
+    email, profile_picture = await get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "email": email, "profile_picture": profile_picture},
     )
 
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.get("/login")
 async def login_with_google(
@@ -164,7 +158,7 @@ async def login_with_google(
 
 @app.get("/token", response_class=RedirectResponse)
 async def get_permission(
-    request: Request, redirect: Union[str , None] = None, db: Session = Depends(get_db)
+    request: Request, redirect: Union[str, None] = None, db: Session = Depends(get_db)
 ):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
@@ -193,7 +187,7 @@ async def get_permission(
         credential=CompleteGoogleCredential(**json_credentials)
     )
     user_info = await get_user_email_info(credentials.token)
-    if user_info != (None, None):
+    if all(user_info):
         request.session["user_info"] = user_info
         email = user_info[0]
         db_main.store_user_login(db, email=email)
@@ -206,7 +200,7 @@ async def get_permission(
 
 @app.get("/handle-token", response_class=HTMLResponse)
 async def redirect_to_handle_token_page(
-    request: Request, jwt_token: str, redirect: Union[str , None]= None
+    request: Request, jwt_token: str, redirect: Union[str, None] = None
 ):
     request.session["token"] = jwt_token
     valid_url = await is_redirect_url_valid(redirect)
@@ -221,111 +215,13 @@ async def redirect_to_handle_token_page(
     )
 
 
-@app.get("/subscriptions/fetch", response_class=HTMLResponse)
-async def fetch_all_subscriptions(request: Request):
-    token = request.session.get("token", None)
-    if token is None:
-        raise HTTPException(
-            status_code=401, detail={"msg": "Unauthorized. Ensure you are logged in"}
-        )  # RedirectResponse(url="/login")
-    decoded_token = await decode_user_token(token)
-    build = await get_authenticated_build(decoded_token)
-    try:
-        subscriptions = await get_all_user_subscription(build)
-    except HTTPException:
-        raise HTTPException(
-            status_code=404, detail={"msg": "Could not fetch subscriptions."}
-        )
-    user_info = request.session.get("user_info", (None, None))
-    email, profile_picture = None, None
-    if user_info != (None, None):
-        email = user_info[0]
-        profile_picture = user_info[1]
-    return templates.TemplateResponse(
-        "subscriptions.html",
-        {
-            "request": request,
-            "subscriptions": subscriptions,
-            "email": email,
-            "profile_picture": profile_picture,
-        },
-    )
-
-
-@app.post("/subscriptions/post", response_class=HTMLResponse)
-async def post_all_subscriptions(
-    request: Request, subscriptions: Union[str , None] = Body(default=None)
-):
-    """Get credentials for the destination account and add sunscriptions"""
-    destination_account_logged_in = request.session.get(
-        "destination-account-logged-in", False
-    )
-    can_post = request.session.get("can-post", False)
-    token = request.session.get("token", False)
-    if not token:
-        raise HTTPException(
-            status_code=401,
-            detail={"msg": "Unauthorized. Ensure you are logged in. "},
-        )
-    if can_post and destination_account_logged_in and token:
-        """Token, can_post and destination_account_logged_in are all set.
-        Can_post session var determines if the subscriptions can be added.
-        It is set in the /handle-token"""
-        decoded_token = await decode_user_token(token)
-        build = await get_authenticated_build(decoded_token)
-        subscriptions = request.session.get("subscription-list")
-        failed_migrations, total_sub = await post_user_subscription(
-            build, subscriptions
-        )
-        user_info = request.session.get("user_info", (None, None))
-        email, profile_picture = None, None
-        if user_info != (None, None):
-            email = user_info[0]
-            profile_picture = user_info[1]
-        request.session["email"] = email
-        request.session.pop("subscriptions-list", None)
-        request.session.pop("can-post", None)
-        request.session.pop("destination-account-logged-in", None)
-        return templates.TemplateResponse(
-            "successful-migration.html",
-            {
-                "request": request,
-                "email": email,
-                "profile_picture": profile_picture,
-                "failed_migrations": failed_migrations,
-                "number_of_failed_subscriptions": sum(failed_migrations.values()),
-                "total_subscriptions": total_sub,
-            },
-        )
-
-    if not destination_account_logged_in:
-        """The user has not signed into the destination account.
-        The session data destination_account_logged_in is set only in /logout"""
-        if subscriptions.startswith("subscriptions="):
-            subscriptions = subscriptions.replace("subscriptions=", "")# removeprefix("subscriptions=")
-        request.session["subscription-list"] = urllib.parse.unquote(subscriptions)
-        return RedirectResponse(
-            url=f"/logout?redirect=subscriptions/post",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
-    return RedirectResponse(
-        url="/login?redirect=subscriptions/fetch", status_code=status.HTTP_303_SEE_OTHER
-    )
-
-
 @app.get("/logout", response_class=HTMLResponse)
 async def logout(request: Request, redirect: str = ""):
     """Revokes token and then clears all stored session data."""
     token: str = request.session.get("token", False)
     subscriptions = request.session.get("subscription-list", False)
     if token:
-        credentials = await decode_user_token(token.strip())
-        async with httpx.AsyncClient() as client:
-            await client.post(
-                "https://oauth2.googleapis.com/revoke",
-                params={"token": credentials.get("token")},
-                headers={"content-type": "application/x-www-form-urlencoded"},
-            )
+        await retire_token(token)
     request.session.clear()
     if redirect == "subscriptions/post" and subscriptions:
         request.session["subscription-list"] = subscriptions
@@ -349,15 +245,15 @@ async def review_modal(
     review_text: str = Form(),
     db: Session = Depends(get_db),
 ):
-    user_info = request.session.get("user_info")
-    email = user_info[0]
+    email, profile_picture = await get_email_and_picture_from_session(request.session)
     db_main.store_user_review(
         db=db, review_radio=review_radio, review_text=review_text, email=email
     )
-    user_info = request.session.get("user_info", (None, None))
-    email, profile_picture = None, None
-    if user_info != (None, None):
-        email = user_info[0]
-        profile_picture = user_info[1]
-    return templates.TemplateResponse("completed-review.html", {"request": request,"email": email,
-            "profile_picture": profile_picture,})
+    return templates.TemplateResponse(
+        "completed-review.html",
+        {
+            "request": request,
+            "email": email,
+            "profile_picture": profile_picture,
+        },
+    )

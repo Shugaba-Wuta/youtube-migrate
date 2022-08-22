@@ -157,7 +157,7 @@ cython_debug/
 #Custom skip 
 app requirements.txt 
 .vscode
-.env
+*.env
 google_api_client_secret.json
 client_secret*
 *.db
