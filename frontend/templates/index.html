@@ -1,4 +1,4 @@
-{%extends "layout/base.html" %} {%block page_title%}Youtube Subscription Migration Tool{%endblock%}
+{%extends "layout/base.html" %} {%block page_title%}YouTube Migration Tool{%endblock%}
 
 <!-- Content -->
 
@@ -9,8 +9,9 @@
         <button type="button" class="btn-close my-auto me-3" data-bs-dismiss="alert" aria-label="Close"></button>
         <span class="my-auto">
             <i data-feather="info" class="text-primary small-text"></i>
-            <strong>Info: </strong>To skip the instruction on this tool, <button onclick="login('subscriptions/fetch')"
-                role="button" class="btn btn-danger text-white">Click Here</button>
+            <strong>Info: </strong>To skip the instruction on this tool, <a
+                onclick="login('subscriptions/fetch?op=migrate')" role="button" class="btn btn-sm btn-danger text-white"
+                id="skipBtn">Click Here</a>
         </span>
     </div>
     <h1 class="fs-1 text-center mt-5" style="margin-top: 5%;"><strong>How To Migrate YouTube Subscription
@@ -40,8 +41,8 @@
         </div>
 
     </div>
-    <button class="d-flex btn btn-danger text-white border-primary" role="button" id="skipBtn" onclick="login('subscriptions/fetch')">
-        <i data-feather="play" class="stroke-1"></i> <span class="m-auto">Start</span>
+    <button class="d-flex btn btn-danger text-white border-primary" role="button" id="migrateBtn" onclick="login('subscriptions/fetch?op=migrate')">
+        <i data-feather="play" class="stroke-1"></i> <span class="m-auto">Migrate Subscriptions</span>
     </button>
 
 

@@ -18,7 +18,7 @@
                     <h6 class="accordion-header" id="successful-{{entity|lower}}-migration">
                         <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#successful-details" aria-expanded="true" aria-controls="successful-details">
                             <p>
-                                <b>&#9989; {{total_operations - number_of_failed_operations}} {{entity}} migration
+                                <b>&#9989; {{total_operations - number_of_failed_operations}} {{entity}} {{operation}}
                                     completed. See all.
                                 </b>
                             </p>
@@ -88,7 +88,6 @@
         "Playlists": "playlists",
         "Videos": "videos",
     }
-    console.log("JS is available.");
     let allResources = document.querySelectorAll("[data-resource-id]")
     allResources.forEach(async(resource) => {
         let resourceType = RESOURCETYPE[`${resource.dataset.resourceType.toString()}`]
@@ -108,12 +107,9 @@
                 if (json_response.items && json_response.items.length > 0) {
                     //Manipulate corresponding HTML col by changing the innerHTML to title from API call. 
                     let title = json_response.items[0].snippet.title;
-                    console.log(`Title: ${title}`);
                     document.querySelector(`[data-resource-id = ${resourceId}]`).innerHTML = title;
                 }
-            }).catch((error) => {
-                console.log(`Response is ok, but Promise was caught! Fetching YouTube resource for YouTube ${resourceType} with ID: ${resourceId} but failed with status code of: ${error.status}`)
-            })
+            }).catch((error) => {})
     })
 
     //fetch("")

@@ -2,22 +2,21 @@
 This file contains the helper functions for the path operations. 
 """
 # Fastapi and related packages
-from re import A
-import re
-from typing import Any
-from fastapi import HTTPException, Query, Request
+from fastapi import HTTPException, Request
 
 # Other packages
+import re
+from typing import Any
 from datetime import datetime
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 from google_auth_oauthlib.flow import Flow
 import jwt
 import json
 import google.oauth2.credentials
 from googleapiclient.discovery import build, Resource
 import httpx
+import ast
 from googleapiclient.errors import HttpError
 
 # Local imports
@@ -41,7 +40,7 @@ with open("client_secret.json", "r") as json_file:
 GOOGLE_CLIENT_ID = client_config["web"]["client_id"]
 GOOGLE_CLIENT_SECRET = client_config["web"]["client_secret"]
 GOOGLE_API_MAX_RESULTS = 50
-POSSIBLE_REDIRECTS = ["subscriptions/fetch", "subscriptions/post", ""]
+POSSIBLE_REDIRECTS = ["subscriptions/migrate","subscriptions/fetch","subscriptions/fetch?op=migrate", "login", "", "subscriptions/fetch?op=unsubscribe", "subscriptions/unsubscribe"]
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
@@ -75,11 +74,12 @@ async def decode_user_token(token: Token):
 async def is_redirect_url_valid(redirect_url):
     return redirect_url in POSSIBLE_REDIRECTS
 
-async def get_email_and_picture_from_session(session: dict): 
+
+async def get_email_and_picture_from_session(session: dict):
     """Recieves request.session as a dict session. Returns the email and profile_picture url."""
     email, profile_picture = session.get("user_info", (None, None))
     return email, profile_picture
-    
+
 
 async def is_token_valid(token):
     try:
@@ -146,7 +146,9 @@ async def get_user_email_info(token):
         return (user_info.get("email", None), user_info.get("picture", None))
     else:
         return (None, None)
-async def retire_token(token:str): 
+
+
+async def retire_token(token: str):
     credentials = await decode_user_token(token.strip())
     async with httpx.AsyncClient() as client:
         await client.post(
@@ -156,11 +158,46 @@ async def retire_token(token:str):
         )
 
 
-async def post_user_subscription(build, comma_separated_subscriptions: str):  # -> tuple(dict, int):
-    """Posts subscription(s) to a youtube channel. Returns the summary of encountered errors if any and the total number of subscriptions initially called."""
+async def delete_subscriptions(build, comma_separated_subscriptions: str):
+    subscriptions = [{"sub_id": sub[0], "channel_id": sub[1]} for sub in  ast.literal_eval(comma_separated_subscriptions)]
     index = 0
-    all_failed_report:list[dict] = []
-    successful_operations:list[str] = []
+    all_failed_report: list[dict] = []
+    successful_operations: list[str] = []
+    while subscriptions and (len(subscriptions) > index):
+        index_sub=subscriptions[index]
+        try:
+            delete_subscription_request = build.subscriptions().delete(id=index_sub.get("sub_id", "1234"))
+            delete_subscription_request.execute()
+        except HttpError as exc:
+            # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for frontend rendering.
+            print(exc.error_details)
+            reason_failed: str = exc.error_details[0]["reason"]
+            unconcan_reason: list[str] = [
+                x.title() for x in re.findall("[a-zA-Z][^A-Z]*", reason_failed)
+            ]
+            failed_report = {
+                "failure_reason": " ".join(unconcan_reason),
+                "resource_id": index_sub.get("channel_id", "1234"),
+            }
+            all_failed_report.append(failed_report)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=501, detail={"msg": "Failed to Unsubscribe subscription."}
+            )
+        else:
+            successful_operations.append(index_sub.get("channel_id", "1234"))
+
+        index += 1
+    return all_failed_report, successful_operations
+
+
+async def migrate_user_subscription(
+    build, comma_separated_subscriptions: str
+):  # -> tuple(dict, int):
+    """Migrates subscription(s) to a youtube channel. Returns the summary of encountered errors if any and the total number of subscriptions initially called."""
+    index = 0
+    all_failed_report: list[dict] = []
+    successful_operations: list[str] = []
     subscriptions = comma_separated_subscriptions.split(",")
     while subscriptions and (len(subscriptions) > index):
         subscription_resource = {
@@ -172,26 +209,31 @@ async def post_user_subscription(build, comma_separated_subscriptions: str):  # 
             }
         }
         try:
-            add_subscription_request = build.subscriptions().insert(
+            delete_subscription_request = build.subscriptions().insert(
                 part="snippet",
                 body=subscription_resource,
             )
-            add_subscription_request.execute()
+            delete_subscription_request.execute()
         except HttpError as exc:
-            #Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for frontend rendering.
-            reason_failed:str = exc.error_details[0]["reason"]
-            unconcan_reason:list[str]= [x.title() for x in re.findall("[a-zA-Z][^A-Z]*", reason_failed)]
-            failed_report = {"failure_reason": " ".join(unconcan_reason), "resource_id": subscriptions[index]}
+            # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for frontend rendering.
+            reason_failed: str = exc.error_details[0]["reason"]
+            unconcan_reason: list[str] = [
+                x.title() for x in re.findall("[a-zA-Z][^A-Z]*", reason_failed)
+            ]
+            failed_report = {
+                "failure_reason": " ".join(unconcan_reason),
+                "resource_id": subscriptions[index],
+            }
             all_failed_report.append(failed_report)
         except Exception as exc:
             raise HTTPException(
                 status_code=501, detail={"msg": "Failed to add subscription."}
             )
-        else: 
+        else:
             successful_operations.append(subscriptions[index])
 
         index += 1
-    return all_failed_report,successful_operations
+    return all_failed_report, successful_operations
 
 
 async def start_google_flow(request: Request, redirect: str) -> Any:
@@ -199,7 +241,7 @@ async def start_google_flow(request: Request, redirect: str) -> Any:
     if not await (is_redirect_url_valid(redirect)):
         raise HTTPException(status_code=422, detail={"msg": "Unprocessable Entity."})
     flow = Flow.from_client_secrets_file("client_secret.json", scopes=GOOGLE_AUTH_SCOPE)
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI + f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI #+ f"?redirect={redirect}"
     auth_url, state = flow.authorization_url(
         prompt="consent", access_type="offline", include_granted_scopes="true"
     )

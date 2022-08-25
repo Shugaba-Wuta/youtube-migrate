@@ -1,15 +1,19 @@
 {% extends "layout/modal-layout.html" %}
 <!-- Sets the ID of the containing block -->
-{% set modal_id="confirm_migration" %}
+{% set modal_id="confirm_operation" %}
 <!--  -->
-{% block modal_title %} Confirm Youtube Subscription Migration {% endblock %}
+{% block modal_title %} Confirm YouTube Subscription {% if operation=="migrate"%}Migration {%elif operation=="unsubscribe"%}Unsubscription {%endif%} {% endblock %}
 <!--  -->
 {% set modal_title_id= modal_id + "_title" %}
 
 <!-- Information about the modal content -->
 {% block modal_body %}
-<p class="small" id="confirmSubscriptionModalText">Default</p>
+<div>
+    <p class="small" id="confirmActionModalText">Default</p>
 
+    {% if operation=="migrate"%}<br><br>Click <em>Continue</em> to Sign-in into to the new YouTube account.{%elif operation=="unsubscribe"%} <br><br>Click <em>Continue</em> to unsubscribe selected Channels{%endif%}
+
+</div>
 
 
 {% endblock %}

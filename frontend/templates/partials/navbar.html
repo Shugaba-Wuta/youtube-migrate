@@ -9,16 +9,50 @@
             <span class="fs-5">Current Section of the web page</span>
         </div>
 
-        <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><i
+        <a type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><i
                 data-feather="menu" class=""></i>
-        </button>
+        </a>
 
 
 
         <ul class="navbar-collapse collapse list-unstyled my-auto justify-content-end align-items-end navbar-nav navbar-right" id="navbarSupportedContent">
+            <li class="btn-group d-flex flex-column ">
+                <a class="btn btn-secondary dropdown-toggle text-white text-end border-0" role="button" type="button" id="migrateDropdown" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
+                    Migrate My
+                </a>
+                <ul class="dropdown-menu rounded-0 bg-primary text-white border-0" aria-labelledby="migrateDropdown">
+                    <li><a class="dropdown-item text-white" onclick="login('subscriptions/fetch?op=migrate')"> YouTube
+                            Subscriptions</a></li>
+                    <li><a class="dropdown-item text-white" onclick="login('/playlists/migrate')"> YouTube Playlists</a>
+                    </li>
+                    <li><a class="dropdown-item text-white" onclick="login('/videos/migrate')"> YouTube Videos</a></li>
+                    <li>
+                        <hr class=" dropdown-divider">
+                    </li>
+                    <li><a class="dropdown-item text-white" onclick="login('subscriptions/fetch?op=unsubscribe')">
+                            Delete
+                            Multiple Subscriptions</a></li>
+
+                </ul>
+
+            </li>
+
+            <li class="btn-group d-flex flex-column ">
+                <a class="btn btn-secondary dropdown-toggle text-white text-end border-0" type="button" id="howToDropdown" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
+                    How-To
+                </a>
+                <ul class="dropdown-menu rounded-0 bg-primary border-0" aria-labelledby="howToDropdown">
+                    <li><a class="dropdown-item text-white" href="#">Migrate Subscriptions</a></li>
+                    <li><a class="dropdown-item text-white" href="#">Unsubscribe Channels</a></li>
+                    <li><a class="dropdown-item text-white" href="#">Migrate Playlists</a></li>
+                    <li><a class="dropdown-item text-white" href="#">Migrate Videos</a></li>
+                </ul>
+
+            </li>
+
             {%if email %}
             <li class="nav-item my-auto mx-2 " id="email-plate">
-                <img src="{{profile_picture}}" alt="Profile photo for {{email}} obtained from google account" width="25" height="25" class="rounded-circle" referrerpolicy="no-referrer"> <span data-email="{{email}}">{{email}}</span>
+                <img src="{{profile_picture}}" alt="Profile photo for {{email}} obtained from google account" width="25" height="25" class="rounded-circle" referrerpolicy="no-referrer"> <span data-email="{{email}}" class="opacity-half">{{email}}</span>
             </li>
             {%endif%}
             <li class="nav-item my-auto d-flex align-items-center">

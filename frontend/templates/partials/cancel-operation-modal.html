@@ -1,0 +1,22 @@
+{% extends "layout/modal-layout.html" %}
+<!-- Sets the ID of the containing block -->
+{% set modal_id="cancel_operation" %}
+<!--  -->
+{% block modal_title %} Terminate YouTube Subscription Migration {% endblock %}
+<!--  -->
+{% set modal_title_id= modal_id + "_title" %}
+
+<!-- Information about the modal content -->
+{% block modal_body %}
+<p class="small">Cancel {% if operation=="migrate"%} Subscription Migration {%elif operation=="unsubscribe"%}Bulk Channel Unsubscription {%endif%}
+</p>
+{% endblock %}
+
+<!-- Actions cancel/ proceed   -->
+{% block modal_footer %}
+<div class="btn-group-small">
+
+    <a role="button" class="btn btn-outline-primary" href="/"> Home </a>
+    <a role="button" class="btn btn-primary ms-3" href="/logout"> Logout </a>
+</div>
+{% endblock %}

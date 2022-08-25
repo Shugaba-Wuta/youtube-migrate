@@ -1,4 +1,4 @@
-const POSSIBLE_REDIRECTS = ["subscriptions/fetch", "login", "", "subscriptions/post"]
+const POSSIBLE_REDIRECTS = ["subscriptions/fetch?op=migrate", "login", "", "subscriptions/fetch?op=unsubscribe", "subscriptions/unsubscribe"]
 const login = (redirect) => {
     var redirect_url = redirect.toString().trim().toLowerCase()
         //redirect validation. 

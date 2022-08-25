@@ -35,8 +35,8 @@ from frontend.utilities import (
     make_jwt_from_credential,
     is_redirect_url_valid,
     get_user_email_info,
-    get_email_and_picture_from_session, 
-    retire_token
+    get_email_and_picture_from_session,
+    retire_token,
 )
 from .subscriptions import subscription_router
 
@@ -45,7 +45,7 @@ from database import database, models, main as db_main
 from database.database import get_db
 
 models.Base.metadata.create_all(bind=database.engine)
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 app.include_router(subscription_router)
 
 
@@ -152,13 +152,14 @@ async def login_with_google(
     if logged_in and token_is_valid:
         return RedirectResponse(url=redirect)
     auth_url = await start_google_flow(request, redirect)
+    request.session["redirect"]=redirect
     response = RedirectResponse(url=auth_url)
     return response
 
 
 @app.get("/token", response_class=RedirectResponse)
 async def get_permission(
-    request: Request, redirect: Union[str, None] = None, db: Session = Depends(get_db)
+    request: Request,  db: Session = Depends(get_db)
 ):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
@@ -166,7 +167,7 @@ async def get_permission(
         scopes=["https://www.googleapis.com/auth/youtube"],
         state=state,
     )
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI + f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI #+ f"?redirect={redirect}"
     auth_url = request.url
     try:
         flow.fetch_token(authorization_response=str(auth_url))
@@ -179,7 +180,7 @@ async def get_permission(
         )
     except Exception:
         raise HTTPException(
-            status_code=422, detail={"msg": "Encountered unprocessable response. "}
+            status_code=422, detail={"msg": "Encountered unprocessable response while logging user in."}
         )
     credentials = flow.credentials
     json_credentials = json.loads(credentials.to_json())
@@ -193,6 +194,8 @@ async def get_permission(
         db_main.store_user_login(db, email=email)
         db_main.store_user(db, email=email)
     request.session["token"] = jwt_token
+    redirect=request.session.get("redirect", "")
+    request.session.pop("redirect", None)
     return RedirectResponse(
         url=f"/handle-token?jwt_token={jwt_token}&redirect={redirect}"
     )
@@ -207,8 +210,8 @@ async def redirect_to_handle_token_page(
     if not valid_url:
         return RedirectResponse(url="/")
         # Can create log for invalid url
-    if redirect == "subscriptions/post":
-        request.session["can-post"] = True
+    if redirect == "subscriptions/migrate":
+        request.session["can-migrate"] = True
     return templates.TemplateResponse(
         "handle-token.html",
         {"request": request, "token": jwt_token, "redirect": redirect},
@@ -223,12 +226,12 @@ async def logout(request: Request, redirect: str = ""):
     if token:
         await retire_token(token)
     request.session.clear()
-    if redirect == "subscriptions/post" and subscriptions:
+    if redirect == "subscriptions/migrate" and subscriptions:
         request.session["subscription-list"] = subscriptions
         request.session["destination-account-logged-in"] = True
         res = templates.TemplateResponse(
             "delete-session-logout.html",
-            {"request": request, "redirect": "login?redirect=subscriptions/post"},
+            {"request": request, "redirect": "login?redirect=subscriptions/migrate"},
         )
         return res
     else:
