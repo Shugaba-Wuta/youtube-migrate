@@ -210,6 +210,14 @@ main {
     min-height: 100vh;
 }
 
+.playlist-card {
+    min-width: 30% !important;
+}
+
+.dot::after {
+    content: "  •  ";
+}
+
 @keyframes migrateBtnAnimationStop {
     0% {
         transform: rotate(5deg)

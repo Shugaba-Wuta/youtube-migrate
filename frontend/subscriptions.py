@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.exceptions import HTTPException
 from typing import Union
 import urllib.parse
+import uuid
 
 
 from frontend.utilities import (
@@ -19,6 +20,7 @@ from frontend.utilities import (
 )
 from .config import templates
 import os
+
 json
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "LOL JOKES,  ON YOU")
@@ -48,7 +50,7 @@ async def migrate_all_subscriptions(
         It is set in the /handle-token"""
         decoded_token = await decode_user_token(token)
         build = await get_authenticated_build(decoded_token)
-        subscriptions = request.session.get("subscription-list")
+        subscriptions = os.environ.get(request.session.get("subscription-list-id"))
         failed_operations, successful_operations = await migrate_user_subscription(
             build, subscriptions
         )
@@ -57,7 +59,8 @@ async def migrate_all_subscriptions(
             request.session
         )
         """Cleaning up session on server after completing `migrate_user_subscription()`"""
-        request.session.pop("subscriptions-list", None)
+        os.environ.pop(request.session.get("subscription-list-id"), None)
+        request.session.pop("subscription-list-id", None)
         request.session.pop("can-migrate", None)
         request.session.pop("destination-account-logged-in", None)
         return templates.TemplateResponse(
@@ -82,7 +85,9 @@ async def migrate_all_subscriptions(
             subscriptions = subscriptions.replace(
                 "subscriptions=", ""
             )  # removeprefix("subscriptions=")
-        request.session["subscription-list"] = urllib.parse.unquote(subscriptions)
+        subscription_id = uuid.uuid1().hex
+        request.session["subscription-list-id"] = subscription_id
+        os.environ[subscription_id] = urllib.parse.unquote(subscriptions)
         return RedirectResponse(
             url=f"/logout?redirect=subscriptions/migrate",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -93,7 +98,7 @@ async def migrate_all_subscriptions(
 
 
 @subscription_router.get("/fetch", response_class=HTMLResponse)
-async def fetch_all_subscriptions(request: Request, op:str="migrate"):
+async def fetch_all_subscriptions(request: Request, op: str = "migrate"):
     token = request.session.get("token", None)
     if token is None:
         """Making a request to /subscriptions/fetch without having session stored"""
@@ -114,7 +119,7 @@ async def fetch_all_subscriptions(request: Request, op:str="migrate"):
         {
             "request": request,
             "module": "subscriptions",
-            "operation":op,
+            "operation": op,
             "subscriptions": subscriptions,
             "email": email,
             "profile_picture": profile_picture,
@@ -125,8 +130,8 @@ async def fetch_all_subscriptions(request: Request, op:str="migrate"):
 @subscription_router.post("/unsubscribe", response_class=HTMLResponse)
 async def migrate_all_subscriptions(
     request: Request, subscriptions: str = Body(default=None)
-):  
-    subscriptions=urllib.parse.unquote(subscriptions)
+):
+    subscriptions = urllib.parse.unquote(subscriptions)
     token = request.session.get("token", False)
     if not token:
         raise HTTPException(
@@ -136,10 +141,11 @@ async def migrate_all_subscriptions(
     if subscriptions.startswith("subscriptions="):
         # removes prefix("subscriptions=")
         comma_sep_subscription_string = subscriptions.replace("subscriptions=", "")
-        decoded_token =await decode_user_token(token)
+        decoded_token = await decode_user_token(token)
     build = await get_authenticated_build(decoded_token)
-    failed_operations, successful_operations= await delete_subscriptions(
-            build, comma_sep_subscription_string  )
+    failed_operations, successful_operations = await delete_subscriptions(
+        build, comma_sep_subscription_string
+    )
     total_ops = len(failed_operations) + len(successful_operations)
     email, profile_picture = await get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
@@ -156,4 +162,3 @@ async def migrate_all_subscriptions(
             "GOOGLE_API_KEY": GOOGLE_API_KEY,
         },
     )
-    # request.session["subscription-list"] = urllib.parse.unquote(subscriptions)

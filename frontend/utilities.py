@@ -2,6 +2,7 @@
 This file contains the helper functions for the path operations. 
 """
 # Fastapi and related packages
+from turtle import st
 from fastapi import HTTPException, Request
 
 # Other packages
@@ -40,7 +41,17 @@ with open("client_secret.json", "r") as json_file:
 GOOGLE_CLIENT_ID = client_config["web"]["client_id"]
 GOOGLE_CLIENT_SECRET = client_config["web"]["client_secret"]
 GOOGLE_API_MAX_RESULTS = 50
-POSSIBLE_REDIRECTS = ["subscriptions/migrate","subscriptions/fetch","subscriptions/fetch?op=migrate", "login", "", "subscriptions/fetch?op=unsubscribe", "subscriptions/unsubscribe"]
+POSSIBLE_REDIRECTS = [
+    "subscriptions/migrate",
+    "subscriptions/fetch",
+    "subscriptions/fetch?op=migrate",
+    "login",
+    "",
+    "subscriptions/fetch?op=unsubscribe",
+    "subscriptions/unsubscribe",
+    "playlists/fetch?op=migrate",
+    "playlists/fetch?op=delete",
+]
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
@@ -159,18 +170,22 @@ async def retire_token(token: str):
 
 
 async def delete_subscriptions(build, comma_separated_subscriptions: str):
-    subscriptions = [{"sub_id": sub[0], "channel_id": sub[1]} for sub in  ast.literal_eval(comma_separated_subscriptions)]
+    subscriptions = [
+        {"sub_id": sub[0], "channel_id": sub[1]}
+        for sub in ast.literal_eval(comma_separated_subscriptions)
+    ]
     index = 0
     all_failed_report: list[dict] = []
     successful_operations: list[str] = []
     while subscriptions and (len(subscriptions) > index):
-        index_sub=subscriptions[index]
+        index_sub = subscriptions[index]
         try:
-            delete_subscription_request = build.subscriptions().delete(id=index_sub.get("sub_id", "1234"))
+            delete_subscription_request = build.subscriptions().delete(
+                id=index_sub.get("sub_id", "1234")
+            )
             delete_subscription_request.execute()
         except HttpError as exc:
             # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for frontend rendering.
-            print(exc.error_details)
             reason_failed: str = exc.error_details[0]["reason"]
             unconcan_reason: list[str] = [
                 x.title() for x in re.findall("[a-zA-Z][^A-Z]*", reason_failed)
@@ -241,9 +256,59 @@ async def start_google_flow(request: Request, redirect: str) -> Any:
     if not await (is_redirect_url_valid(redirect)):
         raise HTTPException(status_code=422, detail={"msg": "Unprocessable Entity."})
     flow = Flow.from_client_secrets_file("client_secret.json", scopes=GOOGLE_AUTH_SCOPE)
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI #+ f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  # + f"?redirect={redirect}"
     auth_url, state = flow.authorization_url(
         prompt="consent", access_type="offline", include_granted_scopes="true"
     )
     request.session["state"] = state
     return auth_url
+
+
+async def change_all_private_playlists_to_unlisted(all_playlists, build):
+    for _, playlist in enumerate(all_playlists):
+        if playlist["status"]["privacyStatus"].strip() != "private":
+            continue
+
+        body = {
+            "id": playlist["id"],
+            "snippet": {
+                "title": playlist["snippet"]["title"],
+                "description": playlist["snippet"]["description"],
+            },
+            "status": {"privacyStatus": "unlisted"},
+        }
+        try:
+            update_status_privacy = (
+                build.playlists().update(part="snippet,status", body=body).execute()
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "msg": f"Unable to update PRIVATE playlist --> {playlist['snippet']['title']} to UNLISTED"
+                },
+            )
+
+
+async def get_all_user_playlists(build) -> dict:
+    playlists: Resource = build.playlists().list(
+        part="snippet,status", mine=True, maxResults=GOOGLE_API_MAX_RESULTS
+    )
+    try:
+        result = playlists.execute()
+    except Exception:
+        raise HTTPException(
+            status_code=404, detail={"msg": "Unable to fetch playlists."}
+        )
+    next_page_token = result.get("nextPageToken", None)
+    while next_page_token:
+        more_playlists: Resource = build.playlists().list(
+            part="snippet",
+            mine=True,
+            pageToken=next_page_token,
+            maxResults=GOOGLE_API_MAX_RESULTS,
+        )
+        result["items"].extend(more_playlists["items"])
+        next_page_token = more_playlists["nextPageToken"]
+    await change_all_private_playlists_to_unlisted(result["items"], build)
+    return result["items"]

@@ -39,6 +39,7 @@ from frontend.utilities import (
     retire_token,
 )
 from .subscriptions import subscription_router
+from .playlists import playlists_router
 
 # Imports from database
 from database import database, models, main as db_main
@@ -47,6 +48,7 @@ from database.database import get_db
 models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(docs_url=None, redoc_url=None)
 app.include_router(subscription_router)
+app.include_router(playlists_router)
 
 
 SESSIONMIDDLEWARE_SECRET_KEY = os.environ.get("MIDDLEWARE_SECRET_KEY")
@@ -58,7 +60,7 @@ if SESSIONMIDDLEWARE_SECRET_KEY is None:
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 # Adding middlewares to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
-app.add_middleware(GZipMiddleware, minimum_size=2)
+app.add_middleware(GZipMiddleware, minimum_size=20)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -152,22 +154,20 @@ async def login_with_google(
     if logged_in and token_is_valid:
         return RedirectResponse(url=redirect)
     auth_url = await start_google_flow(request, redirect)
-    request.session["redirect"]=redirect
+    request.session["redirect"] = redirect
     response = RedirectResponse(url=auth_url)
     return response
 
 
 @app.get("/token", response_class=RedirectResponse)
-async def get_permission(
-    request: Request,  db: Session = Depends(get_db)
-):
+async def get_permission(request: Request, db: Session = Depends(get_db)):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
         "client_secret.json",
         scopes=["https://www.googleapis.com/auth/youtube"],
         state=state,
     )
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI #+ f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  # + f"?redirect={redirect}"
     auth_url = request.url
     try:
         flow.fetch_token(authorization_response=str(auth_url))
@@ -180,7 +180,8 @@ async def get_permission(
         )
     except Exception:
         raise HTTPException(
-            status_code=422, detail={"msg": "Encountered unprocessable response while logging user in."}
+            status_code=422,
+            detail={"msg": "Encountered unprocessable response while logging user in."},
         )
     credentials = flow.credentials
     json_credentials = json.loads(credentials.to_json())
@@ -194,7 +195,7 @@ async def get_permission(
         db_main.store_user_login(db, email=email)
         db_main.store_user(db, email=email)
     request.session["token"] = jwt_token
-    redirect=request.session.get("redirect", "")
+    redirect = request.session.get("redirect", "")
     request.session.pop("redirect", None)
     return RedirectResponse(
         url=f"/handle-token?jwt_token={jwt_token}&redirect={redirect}"
@@ -222,12 +223,13 @@ async def redirect_to_handle_token_page(
 async def logout(request: Request, redirect: str = ""):
     """Revokes token and then clears all stored session data."""
     token: str = request.session.get("token", False)
-    subscriptions = request.session.get("subscription-list", False)
+    subscription_id = request.session.get("subscription-list-id") or "khbjbkbjb"
+    subscriptions = os.environ.get(subscription_id, False)
     if token:
         await retire_token(token)
     request.session.clear()
     if redirect == "subscriptions/migrate" and subscriptions:
-        request.session["subscription-list"] = subscriptions
+        request.session["subscription-list-id"] = subscription_id
         request.session["destination-account-logged-in"] = True
         res = templates.TemplateResponse(
             "delete-session-logout.html",
