@@ -33,12 +33,6 @@ nav ul {
     background-color: #96950F !important;
 }
 
-
-/* #migrateDropdown:hover,
-#howToDropdown:hover {
-    display: flex;
-} */
-
 .w-10 {
     width: 10% !important
 }
@@ -211,11 +205,15 @@ main {
 }
 
 .playlist-card {
-    min-width: 30% !important;
+    min-width: 40% !important;
 }
 
 .dot::after {
     content: "  •  ";
+}
+
+.cursor {
+    cursor: pointer;
 }
 
 @keyframes migrateBtnAnimationStop {
@@ -260,6 +258,12 @@ main {
     }
 }
 
+@media screen and (max-width:720px) {
+    .playlist-privacy-status {
+        display: none;
+    }
+}
+
 @media screen and (max-width:576px) {
      :root {
         font-size: 16px !important;
@@ -281,11 +285,14 @@ main {
     table {
         font-size: 0.9rem !important;
     }
-    /* td {
-        width: 20%;
-    } */
     #email-plate {
         margin-bottom: 0.5rem!important;
+    }
+    .playlist-description {
+        display: none;
+    }
+    .small {
+        font-size: 0.75em ! important;
     }
 }
 

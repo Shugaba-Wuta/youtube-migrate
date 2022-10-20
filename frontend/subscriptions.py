@@ -85,7 +85,7 @@ async def migrate_all_subscriptions(
             subscriptions = subscriptions.replace(
                 "subscriptions=", ""
             )  # removeprefix("subscriptions=")
-        subscription_id = uuid.uuid1().hex
+        subscription_id = uuid.uuid4().hex
         request.session["subscription-list-id"] = subscription_id
         os.environ[subscription_id] = urllib.parse.unquote(subscriptions)
         return RedirectResponse(

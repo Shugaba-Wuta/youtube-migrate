@@ -19,9 +19,11 @@ import os
 from google_auth_oauthlib.flow import Flow
 from oauthlib.oauth2 import OAuth2Error
 import json
-from typing import Union
+from typing import Union, Optional
 from sqlalchemy.orm import Session
 from googleapiclient.errors import *
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # # Local imports
 from frontend.models import (
@@ -42,11 +44,24 @@ from .subscriptions import subscription_router
 from .playlists import playlists_router
 
 # Imports from database
-from database import database, models, main as db_main
+from database import (
+    database,
+    models,
+    main as db_main,
+)
 from database.database import get_db
+from database.in_memory_db import memory_db
+
 
 models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(docs_url=None, redoc_url=None)
+
+
+@app.on_event("startup")
+async def setup_db():
+    await memory_db.setup()
+
+
 app.include_router(subscription_router)
 app.include_router(playlists_router)
 
@@ -135,7 +150,8 @@ async def handle_405_exceptions(request, exc):
 
 ##ROOT URL OPERATIONS
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, db: AsyncSession = Depends(memory_db.get_session)):
+
     email, profile_picture = await get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "index.html",
@@ -163,7 +179,7 @@ async def login_with_google(
 async def get_permission(request: Request, db: Session = Depends(get_db)):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
-        "client_secret.json",
+        "client_secret2.json",
         scopes=["https://www.googleapis.com/auth/youtube"],
         state=state,
     )
@@ -225,6 +241,7 @@ async def logout(request: Request, redirect: str = ""):
     token: str = request.session.get("token", False)
     subscription_id = request.session.get("subscription-list-id") or "khbjbkbjb"
     subscriptions = os.environ.get(subscription_id, False)
+    user_id = request.session.get("user-id", False)
     if token:
         await retire_token(token)
     request.session.clear()
@@ -234,6 +251,13 @@ async def logout(request: Request, redirect: str = ""):
         res = templates.TemplateResponse(
             "delete-session-logout.html",
             {"request": request, "redirect": "login?redirect=subscriptions/migrate"},
+        )
+        return res
+    elif redirect == "playlists/migrated" and user_id:
+        request.session["user-id"] = user_id
+        res = templates.TemplateResponse(
+            "delete-session-logout.html",
+            {"request": request, "redirect": "login?redirect=playlists/migrated"},
         )
         return res
     else:
@@ -260,5 +284,29 @@ async def review_modal(
             "request": request,
             "email": email,
             "profile_picture": profile_picture,
+        },
+    )
+
+
+@app.get("/privacy")
+async def privacy_page(request: Request):
+    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    return templates.TemplateResponse(
+        "privacy.html",
+        {"request": request, "email": email, "profile_picture": profile_picture},
+    )
+
+
+@app.get("/playlist")
+async def playlist_wip(request: Request):
+    return templates.TemplateResponse(
+        "playlists.html",
+        {
+            "request": request,
+            "module": "playlists",
+            "operation": "op",
+            "playlists": "playlists",
+            "email": "email",
+            "profile_picture": "profile_picture",
         },
     )

@@ -7,78 +7,81 @@
 <main class="position-relative container-xl text-primary my-5">
     <h1 class="text-center mt-5" style="margin-top: 5%;" data-operation="{{operation}}"><strong>{{operation|title}}
             YouTube Playlists</strong></h1>
-    {% if (playlist|length > 0) or True %}
-    <div class="card-group">
-        {% for i in range(12) %}
-        <div class="card playlist-card m-1 rounded py-3" style="outline: solid 2px green;">
-            <div class="row ms-0">
-                <label class="form-check-label col-1 align-self-center">
-                    <input type="checkbox" class="form-check-input" name="" id="playlistCheck">
-                </label>
-                <div class="col-3" style="outline: solid 2px rgb(31, 44, 118);">
-                    <img src="" alt="" width="120px" height="90px" class="card-img" style="outline: solid 2px rgb(150, 19, 93);">
-                </div>
-
-                <div class="col-8">
-                    <div> <span class="fw-bold">This is my title</span></div>
-                    <div class="text-muted small">
-                        <span class="dot"> 4 Videos </span>
-                        <span> 0 Views</span>
+    {% if (playlists|length > 0) %}
+    <div class="d-flex flex-column">
+        <div class="card-group">
+            {% for playlist in playlists %}
+            <div class="card playlist-card m-1 rounded">
+                <div class="row m-0">
+                    <label class="form-check-label col-1 align-self-center ms-1 my-3">
+                        <input type="checkbox" class="form-check-input" name="" id="playlistCheck" data-checked="false"
+                            unchecked autocomplete="false" data-playlist-id="{{playlist['id']}}"
+                            data-playlist-privacy-status="{{playlist['status']['privacyStatus']}}"
+                            data-playlist-title="{{playlist['snippet']['title']}}"
+                            data-playlist-default-language="{{playlist['snippet']['defaultLanguage']}}"
+                            data-playlist-description="{{playlist['snippet']['description']}}">
+                    </label>
+                    <div class="col-3 align-self-center mx-1 p-0 my-1">
+                        <img src="{{playlist['snippet']['thumbnails']['default']['url']}}" alt="picture of playlist {{playlist['snippet']['title']}}" class="card-img">
                     </div>
-                    <div>
-                        Lorem ipsum dolor sit amet consectetur adipisicing elit. Praesentium tenetur quas voluptatem consequatur neque ipsum amet, laudantium voluptas delectus laborum, et quos? Ipsam facere temporibus ipsa.
+
+                    <div class="col-7 my-auto">
+                        <div> <span class="fw-bold small">{{playlist['snippet']['title']}}</span></div>
+                        <div class="text-muted small">
+                            <span class="dot"> {{playlist['contentDetails']['itemCount']}} videos</span>
+                            <span> ? Views</span>
+                            <div class=""> <span>Privacy <span class="playlist-privacy-status">Status</span>: {{playlist['status']['privacyStatus']|title}}
+                                </span>
+                                {%if playlist['status']['privacyStatus'] == "private"%}
+                                <a type="button" class="m-0 p-0 muted d-inline-flex align-text-top" data-bs-toggle="tooltip" data-bs-html="true" title="<small>The <em>Privacy Status</em> of this playlist on {{email}} will be modified to <em>unlisted</em></small>.">
+                                    <i data-feather="info" class="text-primary size-16 opacity-half"></i>
+                                    <script>
+                                        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+                                        var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+                                            return new bootstrap.Tooltip(tooltipTriggerEl)
+                                        })
+                                    </script>
+                                </a>
+                                {%endif%}
+                            </div>
+                        </div>
+                        <div class="trim-text small playlist-description">
+                            {{playlist['snippet']['description']}}
+                        </div>
+
                     </div>
 
                 </div>
 
             </div>
-
+            {%endfor%}
         </div>
-        {%endfor%}
-    </div>
-    {% endif %}
+        {% endif %}
 
 
-    <!-- Setting up my modal for confirming playlist operation -->
-    {% block modal %}{% include "partials/confirm-operation-modal.html" %} {% include "partials/cancel-operation-modal.html" %} {% endblock %}
-    <!--  ID's to 2 different Modals Confirm/ Terminate-->
-    {% set confirm_modal_id="confirm_operation" %}
-    <!--  -->
-    {% set cancel_modal_id="cancel_operation" %}
+        <!-- Setting up my modal for confirming playlist operation -->
+        {% block modal %}{% include "partials/confirm-operation-modal.html" %} {% include "partials/cancel-operation-modal.html" %} {% endblock %}
+        <!--  ID's to 2 different Modals Confirm/ Terminate-->
+        {% set confirm_modal_id="confirm_operation" %}
+        <!--  -->
+        {% set cancel_modal_id="cancel_operation" %}
 
-    <!-- <div class=" btn-group ms-auto d-flex ">
+        <div class=" btn-group d-flex ms-auto  me-1 my-3">
 
             <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{cancel_modal_id}}">Cancel</button>
             <button type="button" class="btn btn-primary border-primary ms-3" id="proceedBtn" name="proceedBtn" data-bs-toggle="modal" data-bs-target="#{{confirm_modal_id}}">Proceed</button>
 
-    </div> -->
-    <form id="postPlaylist" method="POST" action="/{{module}}/{{operation}}" class="form position-relative d-inline end-100 " aria-hidden="true" hidden>
-        <input type="text" id="playlists-field" name="playlists">
+        </div>
+    </div>
+
+    <form id="postData" method="POST" action="/{{module}}/{{operation}}" class="form position-relative d-inline end-100 " aria-hidden="true" hidden>
+        <input type="text" id="playlistsField" name="playlists">
     </form>
 
 
 </main>
 <script>
-    // Clicking the checkbox in thead should toggle other checkboxes. 
-    let selectAllCheckbox = document.getElementById("selectAll");
     let allCheckboxes = document.querySelectorAll("[data-checked]")
-
-    selectAllCheckbox.addEventListener("click", () => {
-        let activatedCheckboxes = document.querySelectorAll("[data-checked=true]")
-        if (selectAllCheckbox.checked) {
-            allCheckboxes.forEach((item) => {
-                item.checked = true;
-                item.dataset.checked = true;
-            })
-        } else {
-            allCheckboxes.forEach((item) => {
-                item.checked = false;
-                item.dataset.checked = false;
-
-            })
-        }
-    })
-
     allCheckboxes.forEach((checkbox) => {
         checkbox.addEventListener("change", () => {
             if (checkbox.checked) {
@@ -86,16 +89,8 @@
             } else {
                 checkbox.dataset.checked = false
             }
-
-            let currentlySelectedPlaylist = document.querySelectorAll('[data-checked = true]')
-            if (allCheckboxes.length === currentlySelectedPlaylist.length) {
-                selectAllCheckbox.checked = true;
-            } else {
-                selectAllCheckbox.checked = false;
-            }
-
-
         })
+
     })
 
 
@@ -104,38 +99,38 @@
 
     function prepareSelectedChannels() {
         let idList = Array()
+        window.sessionStorage.removeItem("idList")
         const currentlySelectedPlaylist = document.querySelectorAll("[data-checked = true]")
+            //const operation = document.querySelector("[data-operation]").dataset.operation
         currentlySelectedPlaylist.forEach((item) => {
-            const operation = document.querySelector("[data-operation]").dataset.operation
-            if (operation == "migrate") {
-                if (item.checked) {
-                    idList.push(item.dataset.youtubeChannelId)
-                }
-            } else if (operation == "unsubscribe") {
-                {
-                    if (item.checked) idList.push(JSON.stringify(
-                        [item.dataset.youtubePlaylistId,
-                            item.dataset.youtubeChannelId
-                        ]
-                    ))
-                }
+
+            if (item.checked) {
+
+                idList.push({
+                    playlistId: item.dataset.playlistId,
+                    privacyStatus: item.dataset.playlistPrivacyStatus,
+                    playlistTitle: item.dataset.playlistTitle,
+                    playlistDefaultLanguage: item.dataset.playlistDefaultLanguage,
+                    playlistDescription: item.dataset.playlistDescription,
+                });
+
             }
 
         })
         const requestDetailsContainer = document.getElementById("confirmActionModalText")
         requestDetailsContainer.innerHTML = "<b>" +
-            currentlySelectedPlaylist.length.toString() + "</b> YouTube channel(s) have been selected from " +
-            document.querySelector('[data-email]').dataset.email.toString()
-        window.sessionStorage.setItem("IdList", idList)
+            currentlySelectedPlaylist.length.toString() + "</b> YouTube playlist(s) have been selected from " +
+            document.querySelector('[data-email]').dataset.email.toString();
+        window.sessionStorage.setItem("IdList", JSON.stringify(idList))
 
     }
 
-    let postSub = document.getElementById("postPlaylist");
-    postSub.addEventListener("submit", (event) => {
+    let postData = document.getElementById("postData");
+    postData.addEventListener("submit", (event) => {
         event.preventDefault()
         const idList = window.sessionStorage.getItem("IdList");
-        document.getElementById("playlists-field").value = idList
-        postSub.submit()
+        document.getElementById("playlistsField").value = idList
+        postData.submit()
 
     })
 </script>
