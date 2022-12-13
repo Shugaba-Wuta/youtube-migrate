@@ -1,7 +1,7 @@
 """
-This file contains the helper functions for the path operations. 
+This file contains the helper functions for the path operations.
 """
-# Fastapi and related packages
+# FastAPI and related packages
 from fastapi import HTTPException, Request, Depends
 
 # Other packages
@@ -44,10 +44,11 @@ SESSIONMIDDLEWARE_SECRET_KEY = os.environ.get("MIDDLEWARE_SECRET_KEY")
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM")
 BASE_PATH = Path(__file__).parent.resolve()
-with open("client_secret2.json", "r") as json_file:
+with open("client_secret.json", "r") as json_file:
     client_config = json.load(json_file)
+    print(client_config)
 GOOGLE_CLIENT_ID = client_config["web"]["client_id"]
-GOOGLE_CLIENT_SECRET = client_config["web"]["client_secret"]
+GOOGLE_CLIENT_SECRET = client_config["web"].get("client_secret", None)
 GOOGLE_API_MAX_RESULTS = 50
 POSSIBLE_REDIRECTS = [
     "subscriptions/migrate",
@@ -64,7 +65,7 @@ POSSIBLE_REDIRECTS = [
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
-    raise ValueError("Set the API_KEY vairable is None")
+    raise ValueError("Set the API_KEY variable is None")
 
 
 async def make_jwt_from_credential(credential: CompleteGoogleCredential):
@@ -96,7 +97,7 @@ async def is_redirect_url_valid(redirect_url):
 
 
 async def get_email_and_picture_from_session(session: dict):
-    """Recieves request.session as a dict session. Returns the email and profile_picture url."""
+    """Receives request.session as a dict session. Returns the email and profile_picture url."""
     email, profile_picture = session.get("user_info", (None, None))
     return email, profile_picture
 
@@ -289,9 +290,7 @@ async def start_google_flow(request: Request, redirect: str) -> Any:
     """Starts the Google flow and returns the redirect url"""
     if not await (is_redirect_url_valid(redirect)):
         raise HTTPException(status_code=422, detail={"msg": "Unprocessable Entity."})
-    flow = Flow.from_client_secrets_file(
-        "client_secret2.json", scopes=GOOGLE_AUTH_SCOPE
-    )
+    flow = Flow.from_client_secrets_file("client_secret.json", scopes=GOOGLE_AUTH_SCOPE)
     flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  # + f"?redirect={redirect}"
     auth_url, state = flow.authorization_url(
         prompt="consent", access_type="offline", include_granted_scopes="true"

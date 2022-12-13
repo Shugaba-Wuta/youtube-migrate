@@ -71,7 +71,7 @@ GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
-    raise ValueError("Set the API_KEY vairable is None")
+    raise ValueError("Set the API_KEY variable is None")
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 # Adding middlewares to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
@@ -179,7 +179,7 @@ async def login_with_google(
 async def get_permission(request: Request, db: Session = Depends(get_db)):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
-        "client_secret2.json",
+        "client_secret.json",
         scopes=["https://www.googleapis.com/auth/youtube"],
         state=state,
     )
