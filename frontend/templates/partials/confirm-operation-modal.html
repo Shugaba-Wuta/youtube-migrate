@@ -1,0 +1,29 @@
+{% extends "layout/modal-layout.html" %}
+<!-- Sets the ID of the containing block -->
+{% set modal_id="confirm_operation" %}
+<!--  -->
+{% block modal_title %} Confirm YouTube {{module[:-1]|title}} {% if operation=="migrate"%}Migration {%elif operation=="unsubscribe"%}Unsubscription {%endif%} {% endblock %}
+<!--  -->
+{% set modal_title_id= modal_id + "_title" %}
+
+<!-- Information about the modal content -->
+{% block modal_body %}
+<div>
+    <p class="small" id="confirmActionModalText">Default</p>
+
+    {% if operation=="migrate"%}<br><br>Click <em>Continue</em> to Sign-in into to the new YouTube account.{%elif operation=="unsubscribe"%} <br><br>Click <em>Continue</em> to unsubscribe selected Channels{%endif%}
+
+</div>
+
+
+{% endblock %}
+<!-- Actions cancel/ proceed   -->
+{% block modal_footer %}
+
+<div class="btn-group-small mx-auto">
+
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{modal_id}}">
+        Cancel</button>
+    <input type="submit" class="btn btn-primary ms-3 " form="postData" value="Continue">
+</div>
+{% endblock %}

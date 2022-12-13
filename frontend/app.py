@@ -19,9 +19,11 @@ import os
 from google_auth_oauthlib.flow import Flow
 from oauthlib.oauth2 import OAuth2Error
 import json
-from typing import Union
+from typing import Union, Optional
 from sqlalchemy.orm import Session
 from googleapiclient.errors import *
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # # Local imports
 from frontend.models import (
@@ -35,18 +37,33 @@ from frontend.utilities import (
     make_jwt_from_credential,
     is_redirect_url_valid,
     get_user_email_info,
-    get_email_and_picture_from_session, 
-    retire_token
+    get_email_and_picture_from_session,
+    retire_token,
 )
 from .subscriptions import subscription_router
+from .playlists import playlists_router
 
 # Imports from database
-from database import database, models, main as db_main
+from database import (
+    database,
+    models,
+    main as db_main,
+)
 from database.database import get_db
+from database.in_memory_db import memory_db
+
 
 models.Base.metadata.create_all(bind=database.engine)
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
+
+
+@app.on_event("startup")
+async def setup_db():
+    await memory_db.setup()
+
+
 app.include_router(subscription_router)
+app.include_router(playlists_router)
 
 
 SESSIONMIDDLEWARE_SECRET_KEY = os.environ.get("MIDDLEWARE_SECRET_KEY")
@@ -54,11 +71,11 @@ GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
-    raise ValueError("Set the API_KEY vairable is None")
+    raise ValueError("Set the API_KEY variable is None")
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 # Adding middlewares to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
-app.add_middleware(GZipMiddleware, minimum_size=2)
+app.add_middleware(GZipMiddleware, minimum_size=20)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -133,7 +150,8 @@ async def handle_405_exceptions(request, exc):
 
 ##ROOT URL OPERATIONS
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, db: AsyncSession = Depends(memory_db.get_session)):
+
     email, profile_picture = await get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "index.html",
@@ -152,21 +170,20 @@ async def login_with_google(
     if logged_in and token_is_valid:
         return RedirectResponse(url=redirect)
     auth_url = await start_google_flow(request, redirect)
+    request.session["redirect"] = redirect
     response = RedirectResponse(url=auth_url)
     return response
 
 
 @app.get("/token", response_class=RedirectResponse)
-async def get_permission(
-    request: Request, redirect: Union[str, None] = None, db: Session = Depends(get_db)
-):
+async def get_permission(request: Request, db: Session = Depends(get_db)):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
         "client_secret.json",
         scopes=["https://www.googleapis.com/auth/youtube"],
         state=state,
     )
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI + f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  # + f"?redirect={redirect}"
     auth_url = request.url
     try:
         flow.fetch_token(authorization_response=str(auth_url))
@@ -179,7 +196,8 @@ async def get_permission(
         )
     except Exception:
         raise HTTPException(
-            status_code=422, detail={"msg": "Encountered unprocessable response. "}
+            status_code=422,
+            detail={"msg": "Encountered unprocessable response while logging user in."},
         )
     credentials = flow.credentials
     json_credentials = json.loads(credentials.to_json())
@@ -193,6 +211,8 @@ async def get_permission(
         db_main.store_user_login(db, email=email)
         db_main.store_user(db, email=email)
     request.session["token"] = jwt_token
+    redirect = request.session.get("redirect", "")
+    request.session.pop("redirect", None)
     return RedirectResponse(
         url=f"/handle-token?jwt_token={jwt_token}&redirect={redirect}"
     )
@@ -207,8 +227,8 @@ async def redirect_to_handle_token_page(
     if not valid_url:
         return RedirectResponse(url="/")
         # Can create log for invalid url
-    if redirect == "subscriptions/post":
-        request.session["can-post"] = True
+    if redirect == "subscriptions/migrate":
+        request.session["can-migrate"] = True
     return templates.TemplateResponse(
         "handle-token.html",
         {"request": request, "token": jwt_token, "redirect": redirect},
@@ -219,16 +239,25 @@ async def redirect_to_handle_token_page(
 async def logout(request: Request, redirect: str = ""):
     """Revokes token and then clears all stored session data."""
     token: str = request.session.get("token", False)
-    subscriptions = request.session.get("subscription-list", False)
+    subscription_id = request.session.get("subscription-list-id") or "khbjbkbjb"
+    subscriptions = os.environ.get(subscription_id, False)
+    user_id = request.session.get("user-id", False)
     if token:
         await retire_token(token)
     request.session.clear()
-    if redirect == "subscriptions/post" and subscriptions:
-        request.session["subscription-list"] = subscriptions
+    if redirect == "subscriptions/migrate" and subscriptions:
+        request.session["subscription-list-id"] = subscription_id
         request.session["destination-account-logged-in"] = True
         res = templates.TemplateResponse(
             "delete-session-logout.html",
-            {"request": request, "redirect": "login?redirect=subscriptions/post"},
+            {"request": request, "redirect": "login?redirect=subscriptions/migrate"},
+        )
+        return res
+    elif redirect == "playlists/migrated" and user_id:
+        request.session["user-id"] = user_id
+        res = templates.TemplateResponse(
+            "delete-session-logout.html",
+            {"request": request, "redirect": "login?redirect=playlists/migrated"},
         )
         return res
     else:
@@ -255,5 +284,29 @@ async def review_modal(
             "request": request,
             "email": email,
             "profile_picture": profile_picture,
+        },
+    )
+
+
+@app.get("/privacy")
+async def privacy_page(request: Request):
+    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    return templates.TemplateResponse(
+        "privacy.html",
+        {"request": request, "email": email, "profile_picture": profile_picture},
+    )
+
+
+@app.get("/playlist")
+async def playlist_wip(request: Request):
+    return templates.TemplateResponse(
+        "playlists.html",
+        {
+            "request": request,
+            "module": "playlists",
+            "operation": "op",
+            "playlists": "playlists",
+            "email": "email",
+            "profile_picture": "profile_picture",
         },
     )

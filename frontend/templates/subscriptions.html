@@ -1,14 +1,16 @@
 {% extends "layout/base.html" %}
 <!--  -->
-{% block page_title %}Youtube Subscriptions {% endblock %}
+{% block page_title %}YouTube Subscriptions{% endblock %}
 <!-- content -->
 {%block content%}
 
 <main class="position-relative container-xl text-primary my-5">
-    <h1 class="text-center mt-5" style="margin-top: 5%;"><strong>Migrate YouTube Subscriptions</strong></h1>
+    <h1 class="text-center mt-5" style="margin-top: 5%;" data-operation="{{operation}}"><strong>{{operation|title}}
+            YouTube
+            Subscriptions</strong></h1>
     <div class="form  d-flex flex-column table-responsive-sm">
         <table class="table table-hover table-sm">
-            <caption>All subscribed channels on gmail account</caption>
+            <caption>all subscribed channels for {{email}}</caption>
             <thead>
                 <tr class="">
                     <th scope="col" class="">
@@ -26,13 +28,14 @@
 
             </thead>
             <tbody>
-                {% for i in range(1,subscriptions["items"]|count)%}
-                <tr data-youtube-channel-id='{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}'>
+                {% for i in range(1,subscriptions["items"]|count+1)%}
+                <tr>
                     <th scope="row" class="">
                         <label class="form-check-label  d-flex">
                             <input type="checkbox" name="check-{{i}}" id="check-{{i}}" checked autocomplete="off"
                                 class="form-check-input me-2" data-checked="true"
-                                data-youtube-channel-id='{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}'>
+                                data-youtube-channel-id='{{subscriptions["items"][i-1]["snippet"]["resourceId"]["channelId"]}}'
+                                data-youtube-subscription-id='{{subscriptions["items"][i-1]["id"]}}'>
                             <span> {{i}} </span>
                         </label>
                     </th>
@@ -49,12 +52,12 @@
                 {% endfor %}
             </tbody>
         </table>
-        <!-- Setting up my modal for confirming subscription migration -->
-        {% block modal %}{% include "partials/confirm-migration-modal.html" %} {% include "partials/cancel-migration-modal.html" %} {% endblock %}
+        <!-- Setting up my modal for confirming subscription operation -->
+        {% block modal %}{% include "partials/confirm-operation-modal.html" %} {% include "partials/cancel-operation-modal.html" %} {% endblock %}
         <!--  ID's to 2 different Modals Confirm/ Terminate-->
-        {% set confirm_modal_id="confirm_migration" %}
+        {% set confirm_modal_id="confirm_operation" %}
         <!--  -->
-        {% set cancel_modal_id="cancel_migration" %}
+        {% set cancel_modal_id="cancel_operation" %}
 
         <div class=" btn-group ms-auto d-flex ">
 
@@ -63,7 +66,7 @@
 
         </div>
     </div>
-    <form id="postSubscription" method="POST" action="/subscriptions/post" class="form position-relative d-inline end-100 " aria-hidden="true" hidden>
+    <form id="postData" method="POST" action="/{{module}}/{{operation}}" class="form position-relative d-inline end-100 " aria-hidden="true" hidden>
         <input type="text" id="subscriptions-field" name="subscriptions">
     </form>
 
@@ -114,25 +117,38 @@
     proceedBtn.addEventListener("click", prepareSelectedChannels)
 
     function prepareSelectedChannels() {
-        let channelIdList = Array()
+        let idList = Array()
         const currentlySelectedSubscription = document.querySelectorAll("[data-checked = true]")
         currentlySelectedSubscription.forEach((item) => {
-            if (item.checked) channelIdList.push(item.dataset.youtubeChannelId)
+            const operation = document.querySelector("[data-operation]").dataset.operation
+            if (operation == "migrate") {
+                if (item.checked) {
+                    idList.push(item.dataset.youtubeChannelId)
+                }
+            } else if (operation == "unsubscribe") {
+                {
+                    if (item.checked) idList.push(JSON.stringify(
+                        [item.dataset.youtubeSubscriptionId,
+                            item.dataset.youtubeChannelId
+                        ]
+                    ))
+                }
+            }
+
         })
-        const requestDetailsContainer = document.getElementById("confirmSubscriptionModalText")
+        const requestDetailsContainer = document.getElementById("confirmActionModalText")
         requestDetailsContainer.innerHTML = "<b>" +
-            currentlySelectedSubscription.length.toString() + "</b> Youtube channel(s) have been selected from " +
-            document.querySelector('[data-email]').dataset.email.toString() +
-            "<br><br>Click <emphasis>'Continue'</emphasis> to  Sign-in into to the new Youtube account."
-        window.sessionStorage.setItem("chanenlIdList", channelIdList.toString())
+            currentlySelectedSubscription.length.toString() + "</b> YouTube channel(s) have been selected from " +
+            document.querySelector('[data-email]').dataset.email.toString()
+        window.sessionStorage.setItem("IdList", idList)
 
     }
 
-    let postSub = document.getElementById("postSubscription");
+    let postSub = document.getElementById("postData");
     postSub.addEventListener("submit", (event) => {
         event.preventDefault()
-        const channelIdList = window.sessionStorage.getItem("chanenlIdList");
-        document.getElementById("subscriptions-field").value = channelIdList
+        const idList = window.sessionStorage.getItem("IdList");
+        document.getElementById("subscriptions-field").value = idList
         postSub.submit()
 
     })
