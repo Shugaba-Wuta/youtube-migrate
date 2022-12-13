@@ -19,6 +19,7 @@ from frontend.utilities import (
 )
 from .config import templates
 import os
+
 json
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "LOL JOKES,  ON YOU")
@@ -93,7 +94,7 @@ async def migrate_all_subscriptions(
 
 
 @subscription_router.get("/fetch", response_class=HTMLResponse)
-async def fetch_all_subscriptions(request: Request, op:str="migrate"):
+async def fetch_all_subscriptions(request: Request, op: str = "migrate"):
     token = request.session.get("token", None)
     if token is None:
         """Making a request to /subscriptions/fetch without having session stored"""
@@ -114,7 +115,7 @@ async def fetch_all_subscriptions(request: Request, op:str="migrate"):
         {
             "request": request,
             "module": "subscriptions",
-            "operation":op,
+            "operation": op,
             "subscriptions": subscriptions,
             "email": email,
             "profile_picture": profile_picture,
@@ -125,8 +126,8 @@ async def fetch_all_subscriptions(request: Request, op:str="migrate"):
 @subscription_router.post("/unsubscribe", response_class=HTMLResponse)
 async def migrate_all_subscriptions(
     request: Request, subscriptions: str = Body(default=None)
-):  
-    subscriptions=urllib.parse.unquote(subscriptions)
+):
+    subscriptions = urllib.parse.unquote(subscriptions)
     token = request.session.get("token", False)
     if not token:
         raise HTTPException(
@@ -136,10 +137,11 @@ async def migrate_all_subscriptions(
     if subscriptions.startswith("subscriptions="):
         # removes prefix("subscriptions=")
         comma_sep_subscription_string = subscriptions.replace("subscriptions=", "")
-        decoded_token =await decode_user_token(token)
+        decoded_token = await decode_user_token(token)
     build = await get_authenticated_build(decoded_token)
-    failed_operations, successful_operations= await delete_subscriptions(
-            build, comma_sep_subscription_string  )
+    failed_operations, successful_operations = await delete_subscriptions(
+        build, comma_sep_subscription_string
+    )
     total_ops = len(failed_operations) + len(successful_operations)
     email, profile_picture = await get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(

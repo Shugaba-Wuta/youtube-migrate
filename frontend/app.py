@@ -54,7 +54,7 @@ GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
-    raise ValueError("Set the API_KEY vairable is None")
+    raise ValueError("Set the API_KEY variable is None")
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 # Adding middlewares to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
@@ -152,22 +152,20 @@ async def login_with_google(
     if logged_in and token_is_valid:
         return RedirectResponse(url=redirect)
     auth_url = await start_google_flow(request, redirect)
-    request.session["redirect"]=redirect
+    request.session["redirect"] = redirect
     response = RedirectResponse(url=auth_url)
     return response
 
 
 @app.get("/token", response_class=RedirectResponse)
-async def get_permission(
-    request: Request,  db: Session = Depends(get_db)
-):
+async def get_permission(request: Request, db: Session = Depends(get_db)):
     state = request.session.get("state", None)
     flow = Flow.from_client_secrets_file(
         "client_secret.json",
         scopes=["https://www.googleapis.com/auth/youtube"],
         state=state,
     )
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI #+ f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  # + f"?redirect={redirect}"
     auth_url = request.url
     try:
         flow.fetch_token(authorization_response=str(auth_url))
@@ -180,7 +178,8 @@ async def get_permission(
         )
     except Exception:
         raise HTTPException(
-            status_code=422, detail={"msg": "Encountered unprocessable response while logging user in."}
+            status_code=422,
+            detail={"msg": "Encountered unprocessable response while logging user in."},
         )
     credentials = flow.credentials
     json_credentials = json.loads(credentials.to_json())
@@ -194,7 +193,7 @@ async def get_permission(
         db_main.store_user_login(db, email=email)
         db_main.store_user(db, email=email)
     request.session["token"] = jwt_token
-    redirect=request.session.get("redirect", "")
+    redirect = request.session.get("redirect", "")
     request.session.pop("redirect", None)
     return RedirectResponse(
         url=f"/handle-token?jwt_token={jwt_token}&redirect={redirect}"
