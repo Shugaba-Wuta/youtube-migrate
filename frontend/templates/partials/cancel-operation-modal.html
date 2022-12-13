@@ -2,13 +2,13 @@
 <!-- Sets the ID of the containing block -->
 {% set modal_id="cancel_operation" %}
 <!--  -->
-{% block modal_title %} Terminate YouTube Subscription Migration {% endblock %}
+{% block modal_title %} Terminate YouTube {{module[:-1]|title}} Migration {% endblock %}
 <!--  -->
 {% set modal_title_id= modal_id + "_title" %}
 
 <!-- Information about the modal content -->
 {% block modal_body %}
-<p class="small">Cancel {% if operation=="migrate"%} Subscription Migration {%elif operation=="unsubscribe"%}Bulk Channel Unsubscription {%endif%}
+<p class="small">Cancel {% if operation=="migrate"%} {{module[:-1]|title}} Migration {%elif operation=="unsubscribe"%}Bulk Channel Unsubscription {%endif%}
 </p>
 {% endblock %}
 

@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.exceptions import HTTPException
 from typing import Union
 import urllib.parse
+import uuid
 
 
 from frontend.utilities import (
@@ -49,7 +50,7 @@ async def migrate_all_subscriptions(
         It is set in the /handle-token"""
         decoded_token = await decode_user_token(token)
         build = await get_authenticated_build(decoded_token)
-        subscriptions = request.session.get("subscription-list")
+        subscriptions = os.environ.get(request.session.get("subscription-list-id"))
         failed_operations, successful_operations = await migrate_user_subscription(
             build, subscriptions
         )
@@ -58,7 +59,8 @@ async def migrate_all_subscriptions(
             request.session
         )
         """Cleaning up session on server after completing `migrate_user_subscription()`"""
-        request.session.pop("subscriptions-list", None)
+        os.environ.pop(request.session.get("subscription-list-id"), None)
+        request.session.pop("subscription-list-id", None)
         request.session.pop("can-migrate", None)
         request.session.pop("destination-account-logged-in", None)
         return templates.TemplateResponse(
@@ -83,7 +85,9 @@ async def migrate_all_subscriptions(
             subscriptions = subscriptions.replace(
                 "subscriptions=", ""
             )  # removeprefix("subscriptions=")
-        request.session["subscription-list"] = urllib.parse.unquote(subscriptions)
+        subscription_id = uuid.uuid4().hex
+        request.session["subscription-list-id"] = subscription_id
+        os.environ[subscription_id] = urllib.parse.unquote(subscriptions)
         return RedirectResponse(
             url=f"/logout?redirect=subscriptions/migrate",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -158,4 +162,3 @@ async def migrate_all_subscriptions(
             "GOOGLE_API_KEY": GOOGLE_API_KEY,
         },
     )
-    # request.session["subscription-list"] = urllib.parse.unquote(subscriptions)

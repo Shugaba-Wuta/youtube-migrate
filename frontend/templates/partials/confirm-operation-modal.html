@@ -2,7 +2,7 @@
 <!-- Sets the ID of the containing block -->
 {% set modal_id="confirm_operation" %}
 <!--  -->
-{% block modal_title %} Confirm YouTube Subscription {% if operation=="migrate"%}Migration {%elif operation=="unsubscribe"%}Unsubscription {%endif%} {% endblock %}
+{% block modal_title %} Confirm YouTube {{module[:-1]|title}} {% if operation=="migrate"%}Migration {%elif operation=="unsubscribe"%}Unsubscription {%endif%} {% endblock %}
 <!--  -->
 {% set modal_title_id= modal_id + "_title" %}
 
@@ -24,6 +24,6 @@
 
     <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#{{modal_id}}">
         Cancel</button>
-    <input type="submit" class="btn btn-primary ms-3 " form="postSubscription" value="Continue">
+    <input type="submit" class="btn btn-primary ms-3 " form="postData" value="Continue">
 </div>
 {% endblock %}
