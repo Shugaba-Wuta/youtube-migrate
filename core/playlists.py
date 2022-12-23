@@ -32,7 +32,7 @@ from database.in_memory_db import InMemoryDatabase
 from database.in_memory_db_main import *
 from .config import templates
 from database.in_memory_db import memory_db as db
-import frontend.models as models
+import core.models as models
 
 
 playlists_router = APIRouter(prefix="/playlists", tags=["playlists"])

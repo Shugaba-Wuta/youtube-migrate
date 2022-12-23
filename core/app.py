@@ -26,12 +26,12 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # # Local imports
-from frontend.models import (
+from core.models import (
     CompleteGoogleCredential,
 )
 from .config import templates
 
-from frontend.utilities import (
+from core.utilities import (
     is_token_valid,
     start_google_flow,
     make_jwt_from_credential,
@@ -72,7 +72,7 @@ GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
     raise ValueError("Set the API_KEY variable is None")
-app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+app.mount("/static", StaticFiles(directory="core/static"), name="static")
 # Adding middlewares to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
 app.add_middleware(GZipMiddleware, minimum_size=20)
@@ -310,3 +310,12 @@ async def playlist_wip(request: Request):
             "profile_picture": "profile_picture",
         },
     )
+
+
+@app.get("/test")
+async def test_celery_functionality():
+    from core.background_app.tasks import first_task
+
+    print(first_task.delay)
+    called_func = first_task.delay()
+    return JSONResponse({"success": "bla bla", "id": called_func.id}, status_code=200)

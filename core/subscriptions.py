@@ -1,5 +1,5 @@
 """
-This file defines all /subscription/* operations. It is mounted to app @ frontend/crud.py
+This file defines all /subscription/* operations. It is mounted to app @ core/crud.py
 """
 import json
 from fastapi import APIRouter, Request, Body, status
@@ -10,7 +10,7 @@ import urllib.parse
 import uuid
 
 
-from frontend.utilities import (
+from core.utilities import (
     get_all_user_subscription,
     get_authenticated_build,
     decode_user_token,
@@ -33,7 +33,7 @@ subscription_router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 async def migrate_all_subscriptions(
     request: Request, subscriptions: Union[str, None] = Body(default=None)
 ):
-    """Get credentials for the destination account and add sunscriptions"""
+    """Get credentials for the destination account and add subscriptions"""
     destination_account_logged_in = request.session.get(
         "destination-account-logged-in", False
     )

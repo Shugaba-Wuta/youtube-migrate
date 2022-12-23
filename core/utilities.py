@@ -27,7 +27,7 @@ from .models import CompleteGoogleCredential, GoogleCredential, Token
 from database.in_memory_db_models import Owner, Playlist, PlaylistItem
 from database.in_memory_db_main import *
 from database.in_memory_db import memory_db as db
-import frontend.models as models
+import core.models as models
 
 GOOGLE_AUTH_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -46,7 +46,6 @@ JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM")
 BASE_PATH = Path(__file__).parent.resolve()
 with open("client_secret.json", "r") as json_file:
     client_config = json.load(json_file)
-    print(client_config)
 GOOGLE_CLIENT_ID = client_config["web"]["client_id"]
 GOOGLE_CLIENT_SECRET = client_config["web"].get("client_secret", None)
 GOOGLE_API_MAX_RESULTS = 50
@@ -213,16 +212,14 @@ async def delete_subscriptions(build, comma_separated_subscriptions: str):
     all_failed_report: list[dict] = []
     successful_operations: list[str] = []
     while subscriptions and (len(subscriptions) > index):
-        index_sub  =  subscriptions[index]
+        index_sub = subscriptions[index]
         try:
             delete_subscription_request = build.subscriptions().delete(
-
                 id=index_sub.get("sub_id", "1234")
-
             )
             delete_subscription_request.execute()
         except HttpError as exc:
-            # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for frontend rendering.
+            # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for app rendering.
             reason_failed: str = exc.error_details[0]["reason"]
             unconcan_reason: list[str] = [
                 x.title() for x in re.findall("[a-zA-Z][^A-Z]*", reason_failed)
@@ -267,7 +264,7 @@ async def migrate_user_subscription(
             )
             delete_subscription_request.execute()
         except HttpError as exc:
-            # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for frontend rendering.
+            # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for app rendering.
             reason_failed: str = exc.error_details[0]["reason"]
             unconcan_reason: list[str] = [
                 x.title() for x in re.findall("[a-zA-Z][^A-Z]*", reason_failed)
@@ -293,7 +290,7 @@ async def start_google_flow(request: Request, redirect: str) -> Any:
     if not await (is_redirect_url_valid(redirect)):
         raise HTTPException(status_code=422, detail={"msg": "Unprocessable Entity."})
     flow = Flow.from_client_secrets_file("client_secret.json", scopes=GOOGLE_AUTH_SCOPE)
-    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI   #  + f"?redirect={redirect}"
+    flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  #  + f"?redirect={redirect}"
     auth_url, state = flow.authorization_url(
         prompt="consent", access_type="offline", include_granted_scopes="true"
     )
@@ -447,16 +444,14 @@ async def create_playlist_gapi(build, playlist_model_list: List[models.Playlist]
             await update_destination_id_for_playlist_items(request_id, response)
 
 
-def create_playlist_item_callback(response):
-    print(response)
+# def create_playlist_item_callback(response):
+#     print(response)
 
 
 async def add_playlist_items_to_gapi(
     build, playlist_item_list: List[models.PlaylistItem]
 ):
     for playlist_item in playlist_item_list:
-        await asyncio.sleep(10)
-        print(playlist_item.note, type(playlist_item.note))
         body = {
             "snippet": {
                 "playlistId": playlist_item.destination_playlist_id,
@@ -485,5 +480,5 @@ async def add_playlist_items_to_gapi(
                 status_code=500, detail={"msg": "Unable to migrate playlist items."}
             )
         else:
-            print(f"\n\n\n\n\n\nCreated record: {response}\n\n\n\n\n\n")
-            create_playlist_item_callback(response=response)
+            print(f"Playlist insertion is complete! ")
+            # create_playlist_item_callback(response=response)

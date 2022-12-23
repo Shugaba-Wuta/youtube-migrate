@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+
+    app:
+        container_name: app
+        build: .
+        command: su -m myuser -c "uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+        volumes:
+            - .:/app
+        ports:
+            - "5333:8000"
+        restart: always
+
+    redis:
+        container_name: redis
+        image: redis
+        ports:
+            - "6379:6379"
+
+    rabbitmq:
+        container_name: rabbit
+        hostname: rabbitmq
+        image: rabbitmq:3-management
+        environment:
+            - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+            - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+
+    celery_worker:
+        &celery_env
+        container_name: celery_worker
+        build: .
+        working_dir: //app/core
+        command: ../scripts/celery_worker.sh
+        volumes:
+            - .:/app
+        environment:
+            - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+            - CELERY_BROKER=${CELERY_BROKER_URL}
+        depends_on:
+            - app
+            - redis
+            - rabbitmq
+
+    flower:
+        container_name: flower
+        hostname: flower
+        build: .
+        working_dir: //app/core
+        command: ../scripts/flower_celery.sh
+        ports:
+            - "5556:5555"
+        # environment:
+        #     - CELERY_BROKER_URL =${CELERY_BROKER_URL}
+        #     - CELERY_RESULT_BACKEND =${CELERY_RESULT_BACKEND}
+        #     - CELERY_BROKER=${CELERY_BROKER_URL}
+        <<: *celery_env
+        depends_on:
+            - app
+            - celery_worker
+            - redis
+            - rabbitmq

@@ -154,15 +154,15 @@ cython_debug/
 
 
 
-#Custom skip 
-app requirements.txt 
+#Custom ignore
+app requirements.txt
 .vscode
 *.env
 google_api_client_secret.json
 client_secret*
 *.db
-frontend/static/css/modification.scss.css
+core/static/css/modification.scss.css
 .python-version
-pre.py
 ubuntu/
 ubuntu
+trials/

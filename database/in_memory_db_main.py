@@ -5,7 +5,7 @@ import asyncio
 from database.in_memory_db_models import *
 from fastapi import Request, HTTPException, Depends
 from database.in_memory_db import memory_db as db, InMemoryDatabase
-import frontend.models as models
+import core.models as models
 
 
 def setup_mem_db(db=db):
