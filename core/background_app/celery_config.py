@@ -9,9 +9,10 @@ celery_app = Celery(
     "yt-migrate",
     broker=os.environ.get("CELERY_BROKER_URL"),
     backend=os.environ.get("CELERY_RESULT_BACKEND"),
-    include=["tasks"],
+    include=["core.background_app.tasks"],
 )
+celery_app.autodiscover_tasks(packages=["core.background_app"])
+# celery -A core.celery_app worker -l INFO
 
 if __name__ == "__main__":
-    worker = celery_app.Worker(include=["tasks"])
-    worker.start()
+    raise Exception("This module should not be executed directly")

@@ -21,6 +21,8 @@ import ast
 import asyncio
 from googleapiclient.errors import HttpError
 from uuid import uuid4
+from pydantic import BaseModel
+
 
 # Local imports
 from .models import CompleteGoogleCredential, GoogleCredential, Token
@@ -299,6 +301,7 @@ async def start_google_flow(request: Request, redirect: str) -> Any:
 
 
 async def get_all_user_playlists_from_gapi(build) -> dict:
+    """Fetches playlist resource from YouTube Account (preferably the old YouTube)"""
     playlists: Resource = build.playlists().list(
         part="snippet,status,contentDetails",
         mine=True,
@@ -320,7 +323,6 @@ async def get_all_user_playlists_from_gapi(build) -> dict:
         )
         result["items"].extend(more_playlists["items"])
         next_page_token = more_playlists("nextPageToken", False)
-    # await change_all_private_playlists_to_unlisted(result["items"], build)
     return result["items"]
 
 
@@ -418,7 +420,6 @@ async def create_playlist_gapi2(build, playlist_model_list: List[models.Playlist
 
 async def create_playlist_gapi(build, playlist_model_list: List[models.Playlist]):
     for i, playlist_model in enumerate(playlist_model_list):
-        print(i, playlist_model)
         body = {
             "snippet": {
                 "title": playlist_model.title,
@@ -442,10 +443,6 @@ async def create_playlist_gapi(build, playlist_model_list: List[models.Playlist]
         else:
             request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
             await update_destination_id_for_playlist_items(request_id, response)
-
-
-# def create_playlist_item_callback(response):
-#     print(response)
 
 
 async def add_playlist_items_to_gapi(
@@ -482,3 +479,8 @@ async def add_playlist_items_to_gapi(
         else:
             print(f"Playlist insertion is complete! ")
             # create_playlist_item_callback(response=response)
+
+
+async def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
+    """Converts a  list of models to a list of dictionary representing the models"""
+    return [model.dict() for model in list_of_models]

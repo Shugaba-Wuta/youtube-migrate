@@ -310,12 +310,3 @@ async def playlist_wip(request: Request):
             "profile_picture": "profile_picture",
         },
     )
-
-
-@app.get("/test")
-async def test_celery_functionality():
-    from core.background_app.tasks import first_task
-
-    print(first_task.delay)
-    called_func = first_task.delay()
-    return JSONResponse({"success": "bla bla", "id": called_func.id}, status_code=200)
