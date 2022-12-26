@@ -22,6 +22,7 @@ import asyncio
 from googleapiclient.errors import HttpError
 from uuid import uuid4
 from pydantic import BaseModel
+import backoff
 
 
 # Local imports
@@ -30,6 +31,7 @@ from database.in_memory_db_models import Owner, Playlist, PlaylistItem
 from database.in_memory_db_main import *
 from database.in_memory_db import memory_db as db
 import core.models as models
+from core.background_app.celery_config import celery_app
 
 GOOGLE_AUTH_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -418,6 +420,8 @@ async def create_playlist_gapi2(build, playlist_model_list: List[models.Playlist
             await update_destination_id_for_playlist_items(request_id, response)
 
 
+@celery_app.task("create identical Playlist")
+@backoff.on_exception(backoff.expo, [HTTPException], max_tries=10)
 async def create_playlist_gapi(build, playlist_model_list: List[models.Playlist]):
     for i, playlist_model in enumerate(playlist_model_list):
         body = {
@@ -432,13 +436,14 @@ async def create_playlist_gapi(build, playlist_model_list: List[models.Playlist]
             response = (
                 build.playlists().insert(part="id,snippet,status", body=body).execute()
             )
-
-        except Exception as exc:
-            print(exc)
-            raise HTTPException(
-                status_code=404,
-                detail={"msg": f"Unable to create all playlists"},
-            )
+        except HttpError as g_exc:
+            raise g_exc
+        # except Exception as exc:
+        #     print(exc)
+        #     raise HTTPException(
+        #         status_code=404,
+        #         detail={"msg": f"Unable to create all playlists"},
+        #     )
 
         else:
             request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id

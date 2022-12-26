@@ -87,8 +87,6 @@ async def collate_and_store_all_selected_playlists(
     ]
     # Async SQLite storage
     await batch_insert_playlist(db, playlist_model_list)
-    # Redis storage
-    await store_playlist_redis_db(owner.user_id, json_playlists)
 
     #
     # Stage 2: Fetch all playlist_items for each playlist resource and persist
@@ -101,9 +99,6 @@ async def collate_and_store_all_selected_playlists(
         )
         # Using the aiosqlite model to store selected playlist items
         await batch_insert_playlist_items_into_mem_db(db, playlist_items)
-        playlist_items_dict = await convert_model_list_to_json(playlist_items)
-        # Using redis to store the selected playlist items
-        await store_playlist_items_redis_db(owner.user_id, playlist_items_dict)
     return RedirectResponse(
         url="/logout?redirect=playlists/migrated", status_code=status.HTTP_303_SEE_OTHER
     )
@@ -123,7 +118,6 @@ async def after_signing_into_destination_acct(
             status_code=404, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
     playlists: List[Playlist] = await get_all_user_playlist(db, user_id)
-    playlists_redis_db: List[Playlist] = await retrieve_playlist_redis_db(user_id)
 
     playlist_model_list: List[models.Playlist] = [
         models.Playlist(
