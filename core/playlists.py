@@ -24,6 +24,7 @@ from .utilities import (
     get_all_user_playlists_from_gapi,
     fetch_all_playlist_items_from_gapi,
     get_gapi_build,
+    migrate_playlist_in_background,
     add_playlist_items_to_gapi,
     convert_model_list_to_json,
 )
@@ -33,7 +34,7 @@ from database.in_memory_db_main import *
 from .config import templates
 from database.in_memory_db import memory_db as db
 import core.models as models
-from redis_storage.main import *
+from core.redis_storage.main import *
 
 
 playlists_router = APIRouter(prefix="/playlists", tags=["playlists"])
@@ -118,6 +119,7 @@ async def after_signing_into_destination_acct(
             status_code=404, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
     playlists: List[Playlist] = await get_all_user_playlist(db, user_id)
+    email, _ = await get_email_and_picture_from_session(request.session)
 
     playlist_model_list: List[models.Playlist] = [
         models.Playlist(
@@ -131,30 +133,17 @@ async def after_signing_into_destination_acct(
         )
         for playlist in playlists
     ]
-    await create_playlist_gapi(build, playlist_model_list=playlist_model_list)
+    # Call the celery_app process to create new playlist and add the corresponding playlist_items
+    migrate_playlist_in_background.delay(build, playlist_model_list, email, user_id, db)
 
-    playlist_items: List[PlaylistItem] = await get_updated_user_playlist_items(
-        user_id, db
-    )
+    return {"waiting": "count-down"}
 
-    playlist_item_model_list: List[models.PlaylistItem] = [
-        models.PlaylistItem(
-            id=playlist_item.id,
-            user_id=user_id,
-            originating_playlist_id=playlist_item.originating_playlist_id,
-            destination_playlist_id=playlist_item.destination_playlist_id,
-            updated_id=playlist_item.updated_id,
-            position=playlist_item.position,
-            note=playlist_item.note,
-            resource_id=playlist_item.resource_id,
-            resource_kind=playlist_item.resource_kind,
-        )
-        for playlist_item in playlist_items
-    ]
-    await add_playlist_items_to_gapi(build, playlist_item_model_list)
+
+"""
     return {
         "playlists": len(playlists),
         "playlist_item_model_list": len(playlist_item_model_list),
         "playlist_items": len(playlist_items),
         "user_id": user_id,
     }
+    """

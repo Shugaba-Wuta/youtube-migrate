@@ -32,6 +32,7 @@ from database.in_memory_db_main import *
 from database.in_memory_db import memory_db as db
 import core.models as models
 from core.background_app.celery_config import celery_app
+from core.logs.logger_config import logger
 
 GOOGLE_AUTH_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -384,108 +385,132 @@ async def fetch_all_playlist_items_from_gapi(
     return playlist_item_list
 
 
-async def update_destination_id_for_playlist_items(
-    request_id: str, response, exception=None
-):
+def update_destination_id_for_playlist_items(request_id: str, response, exception=None):
     if exception:
         raise exception
     destination_playlist_id = response["id"]
     user_id, originating_playlist_id = request_id.split(DELIMITER)
-    await batch_update_destination_id_for_playlist_items(
-        user_id, originating_playlist_id, destination_playlist_id
+    asyncio.run(
+        batch_update_destination_id_for_playlist_items(
+            user_id, originating_playlist_id, destination_playlist_id
+        )
     )
 
 
-async def create_playlist_gapi2(build, playlist_model_list: List[models.Playlist]):
-    for playlist_model in playlist_model_list:
-        body = {
-            "snippet": {
-                "title": playlist_model.title,
-                "description": playlist_model.description,
-                "defaultLanguage": playlist_model.default_lang,
+def backoff_gapi(*args, **kwargs):
+    logger.info(
+        "Call to google api failed",
+        {"args from gapi call ": args, "kwargs from gapi call ": kwargs},
+        stack_info=True,
+    )
+    print(f"\n\n\n {kwargs, args} \n\n\n")
+
+
+def on_give_up_playlist(*args, **kwargs):
+    logger.error(
+        "Create Playlist backoff failed",
+        {"args from create playlist: ": args, "kwargs from create playlist": kwargs},
+    )
+    
+
+@backoff.on_exception(
+    backoff.expo(factor=3),
+    [HttpError],
+    max_tries=5,
+    jitter=backoff.full_jitter,
+    on_backoff=backoff_gapi,
+)
+def create_playlist_gapi(
+    build, playlist_model: models.Playlist, user_id, db
+) -> List[PlaylistItem]:
+    body = {
+        "snippet": {
+            "title": playlist_model.title,
+            "description": playlist_model.description,
+            "defaultLanguage": playlist_model.default_lang,
+        },
+        "status": {"privacyStatus": playlist_model.privacy_status},
+    }
+    try:
+        response = (
+            build.playlists().insert(part="id,snippet,status", body=body).execute()
+        )
+    except HttpError as g_exc:
+        raise g_exc
+    except Exception as exc:
+        logger.exception("python exception", {"playlist-model": playlist_model.dict})
+        raise exc
+    else:
+        request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
+        update_destination_id_for_playlist_items(request_id, response)
+        playlist_items = asyncio.run(get_all_user_playlist(db, user_id))
+        return playlist_items
+
+
+@backoff.on_exception(
+    backoff.expo(factor=3),
+    (HttpError),
+    max_tries=5,
+    jitter=backoff.full_jitter,
+    on_backoff=backoff_gapi,
+)
+def add_playlist_items_to_gapi(build, playlist_item: models.PlaylistItem):
+    body = {
+        "snippet": {
+            "playlistId": playlist_item.destination_playlist_id,
+            "resourceId": {
+                "kind": playlist_item.resource_kind,
+                "videoId": playlist_item.resource_id,
             },
-            "status": {"privacyStatus": playlist_model.privacy_status},
-        }
-        try:
+            "position": playlist_item.position,
+        },
+        "contentDetails": {"note": playlist_item.note},
+    }
 
-            response = (
-                build.playlists().insert(part="snippet,id,status", body=body).execute()
-            )
-        except HttpError as google_exc:
-            raise google_exc
-        except Exception as other_exc:
-            raise other_exc
-        else:
-            request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
-            await update_destination_id_for_playlist_items(request_id, response)
+    try:
+        response = (
+            build.playlistItems()
+            .insert(part="snippet,contentDetails", body=body)
+            .execute()
+        )
 
-
-@celery_app.task("create identical Playlist")
-@backoff.on_exception(backoff.expo, [HTTPException], max_tries=10)
-async def create_playlist_gapi(build, playlist_model_list: List[models.Playlist]):
-    for i, playlist_model in enumerate(playlist_model_list):
-        body = {
-            "snippet": {
-                "title": playlist_model.title,
-                "description": playlist_model.description,
-                "defaultLanguage": playlist_model.default_lang,
-            },
-            "status": {"privacyStatus": playlist_model.privacy_status},
-        }
-        try:
-            response = (
-                build.playlists().insert(part="id,snippet,status", body=body).execute()
-            )
-        except HttpError as g_exc:
-            raise g_exc
-        # except Exception as exc:
-        #     print(exc)
-        #     raise HTTPException(
-        #         status_code=404,
-        #         detail={"msg": f"Unable to create all playlists"},
-        #     )
-
-        else:
-            request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
-            await update_destination_id_for_playlist_items(request_id, response)
-
-
-async def add_playlist_items_to_gapi(
-    build, playlist_item_list: List[models.PlaylistItem]
-):
-    for playlist_item in playlist_item_list:
-        body = {
-            "snippet": {
-                "playlistId": playlist_item.destination_playlist_id,
-                "resourceId": {
-                    "kind": playlist_item.resource_kind,
-                    "videoId": playlist_item.resource_id,
-                },
-                "position": playlist_item.position,
-            },
-            "contentDetails": {"note": playlist_item.note},
-        }
-
-        try:
-            response = (
-                build.playlistItems()
-                .insert(part="snippet,contentDetails", body=body)
-                .execute()
-            )
-
-        except HttpError as gexc:
-            print(gexc)
-            response = None
-        except Exception as exc:
-            print(exc)
-            raise HTTPException(
-                status_code=500, detail={"msg": "Unable to migrate playlist items."}
-            )
-        else:
-            print(f"Playlist insertion is complete! ")
-            # create_playlist_item_callback(response=response)
+    except HttpError as gexc:
+        raise gexc
+    except Exception as exc:
+        logger.exception("Python error", {"playlist-item": playlist_item.dict()})
+        raise exc
+    else:
+        pass
 
 
 async def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
     """Converts a  list of models to a list of dictionary representing the models"""
     return [model.dict() for model in list_of_models]
+
+
+def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id, db):
+    for _, playlist_model in enumerate(playlist_model_list):
+        try:
+            playlist_items_list: List[PlaylistItem] = create_playlist_gapi(
+                build, playlist_model, user_id, db
+            )
+
+            for _, playlist_item in enumerate(playlist_items_list):
+                add_playlist_items_to_gapi(build, playlist_item)
+
+        except Exception:
+            continue
+
+
+#
+# Celery tasks
+#
+def playlist_migration_mail(email, user_id, *args, **kwargs):
+    pass
+
+
+@celery_app.task(name="migrate-playlist", serializer="pickle")
+def migrate_playlist_in_background(build, playlist_model_list, email, user_id, db):
+    migrate_playlist(build, playlist_model_list, user_id, db)
+    playlist_migration_mail(email, user_id)
+    return {}
