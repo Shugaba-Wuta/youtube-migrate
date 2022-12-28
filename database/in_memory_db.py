@@ -1,3 +1,4 @@
+import asyncio
 from typing import AsyncIterator, Optional
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -36,7 +37,7 @@ class InMemoryDatabase:
             await conn.run_sync(Base.metadata.create_all)
 
     def get_engine(self) -> AsyncEngine:
-        assert self._async_memory_engine, "No qengine. Run setup() first."
+        assert self._async_memory_engine, "No engine. Run setup() first."
         return self._async_memory_engine
 
     def get_session(self) -> AsyncSession:

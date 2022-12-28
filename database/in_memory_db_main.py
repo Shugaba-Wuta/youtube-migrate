@@ -13,6 +13,7 @@ def setup_mem_db(db=db):
 
 
 async def get_owner(session: AsyncSession, user_id: str):
+    print("GET OWNER \n\n", user_id, session)
     stmt = select(Owner).where(Owner.user_id == user_id)
     async with session:
         result = await session.execute(stmt)

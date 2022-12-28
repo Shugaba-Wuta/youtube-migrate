@@ -23,6 +23,7 @@ from googleapiclient.errors import HttpError
 from uuid import uuid4
 from pydantic import BaseModel
 import backoff
+import time
 
 
 # Local imports
@@ -33,6 +34,8 @@ from database.in_memory_db import memory_db as db
 import core.models as models
 from core.background_app.celery_config import celery_app
 from core.logs.logger_config import logger
+from database.in_memory_db import memory_db
+
 
 GOOGLE_AUTH_SCOPE = [
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -184,6 +187,7 @@ async def make_resource_owner(
         user = await create_user_id(db, user_uuid)
         return models.Owner(user_id=user.user_id, created_at=user.created_at)
     owner: Owner = await get_owner(db, user_uuid)
+    print(f"\n\n\nOwner: {owner}\n\n\n")
     return models.Owner(user_id=owner.user_id, created_at=owner.created_at)
 
 
@@ -411,7 +415,7 @@ def on_give_up_playlist(*args, **kwargs):
         "Create Playlist backoff failed",
         {"args from create playlist: ": args, "kwargs from create playlist": kwargs},
     )
-    
+
 
 @backoff.on_exception(
     backoff.expo(factor=3),
@@ -490,6 +494,7 @@ async def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
 
 def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id, db):
     for _, playlist_model in enumerate(playlist_model_list):
+        print("playlist-item: ", playlist_model.dict())
         try:
             playlist_items_list: List[PlaylistItem] = create_playlist_gapi(
                 build, playlist_model, user_id, db
@@ -510,7 +515,18 @@ def playlist_migration_mail(email, user_id, *args, **kwargs):
 
 
 @celery_app.task(name="migrate-playlist", serializer="pickle")
-def migrate_playlist_in_background(build, playlist_model_list, email, user_id, db):
-    migrate_playlist(build, playlist_model_list, user_id, db)
+def migrate_playlist_in_background(build, playlist_model_list, email, user_id):
+    print("I am about to call Get Session", "\n" * 5)
+    _ = asyncio.run(memory_db.setup())
+    migrate_playlist(build, playlist_model_list, user_id, db=memory_db.get_session())
+    print("DONE migrating playlists")
     playlist_migration_mail(email, user_id)
     return {}
+
+
+@celery_app.task(name="test-creating-db-session", serializer="pickle")
+def test_getting_db_session():
+    start_time = datetime.now().isoformat()
+    time.sleep(100)
+    print("Done and time is: ", datetime.now().isoformat(), "Start time: ", start_time)
+    return {"error": None}

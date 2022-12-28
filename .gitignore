@@ -166,3 +166,5 @@ core/static/css/modification.scss.css
 ubuntu/
 ubuntu
 trials/
+*.rdb
+*.dump

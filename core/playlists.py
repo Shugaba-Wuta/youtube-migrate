@@ -25,8 +25,7 @@ from .utilities import (
     fetch_all_playlist_items_from_gapi,
     get_gapi_build,
     migrate_playlist_in_background,
-    add_playlist_items_to_gapi,
-    convert_model_list_to_json,
+    test_getting_db_session,
 )
 from database.in_memory_db_models import Playlist, Owner, PlaylistItem
 from database.in_memory_db import InMemoryDatabase
@@ -134,16 +133,11 @@ async def after_signing_into_destination_acct(
         for playlist in playlists
     ]
     # Call the celery_app process to create new playlist and add the corresponding playlist_items
-    migrate_playlist_in_background.delay(build, playlist_model_list, email, user_id, db)
+    migrate_playlist_in_background.delay(build, playlist_model_list, email, user_id)
 
     return {"waiting": "count-down"}
 
 
-"""
-    return {
-        "playlists": len(playlists),
-        "playlist_item_model_list": len(playlist_item_model_list),
-        "playlist_items": len(playlist_items),
-        "user_id": user_id,
-    }
-    """
+@playlists_router.get("/test")
+async def tests():
+    test_getting_db_session.delay()
