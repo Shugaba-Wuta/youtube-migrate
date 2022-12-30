@@ -4,4 +4,4 @@
 # sleep 5
 
 # Replace * with name of Django Project
-su -m myuser -c "celery -A core.celery_app worker -l INFO -P solo"
+su -m myuser -c "celery -A core.celery_app worker -l FATAL -P solo -f celery.log"

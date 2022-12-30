@@ -448,6 +448,7 @@ def create_playlist_gapi(
         request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
         update_destination_id_for_playlist_items(request_id, response)
         playlist_items = asyncio.run(get_all_user_playlist(db, user_id))
+        print("create_playlist_gapi func(): ", playlist_items)
         return playlist_items
 
 
@@ -494,13 +495,14 @@ async def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
 
 def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id, db):
     for _, playlist_model in enumerate(playlist_model_list):
-        print("playlist-item: ", playlist_model.dict())
+        print("playlist-model: ", playlist_model.dict())
         try:
             playlist_items_list: List[PlaylistItem] = create_playlist_gapi(
                 build, playlist_model, user_id, db
             )
 
             for _, playlist_item in enumerate(playlist_items_list):
+                print("playlist-item: ", playlist_item)
                 add_playlist_items_to_gapi(build, playlist_item)
 
         except Exception:

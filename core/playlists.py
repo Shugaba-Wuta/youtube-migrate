@@ -134,6 +134,7 @@ async def after_signing_into_destination_acct(
     ]
     # Call the celery_app process to create new playlist and add the corresponding playlist_items
     migrate_playlist_in_background.delay(build, playlist_model_list, email, user_id)
+    # migrate_playlist_in_background(build, playlist_model_list, email, user_id)
 
     return {"waiting": "count-down"}
 

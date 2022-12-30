@@ -5,7 +5,7 @@ import logging
 logging.basicConfig(
     filename=f"program logs.log",
     format="%(asctime)s - %(levelname)s - %(message)s args:%(args)s - %(pathname)s line: %(lineno)d\n",
-    filemode="w",
+    filemode="a",
 )
 
 # Creating an object
