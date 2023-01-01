@@ -1,5 +1,5 @@
-import asyncio
-from typing import AsyncIterator, Optional
+import threading
+from typing import AsyncIterator, Optional, Any, Dict
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from database.in_memory_db_models import Base
@@ -49,6 +49,38 @@ class InMemoryDatabase:
         # self.setup(filename)
         async with self._async_sessionmaker() as session:
             yield session
+
+
+class ThreadSafeSingleton(type):
+    _instances = {}
+    _singleton_locks: Dict[Any, threading.Lock] = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            if cls not in cls._singleton_locks:
+                cls._singleton_locks[cls] = threading.Lock()
+            with cls._singleton_locks[cls]:
+                if cls not in cls._instances:
+                    cls._instances[cls] = super(ThreadSafeSingleton, cls).__call__(
+                        *args, **kwargs
+                    )
+        return cls._instances[cls]
+
+
+class MemDB(metaclass=ThreadSafeSingleton):
+    def __init__(self) -> None:
+        self.setup()
+
+    @classmethod
+    def setup(cls):
+        return "Setup function"
+
+    def __str__(cls) -> str:
+        print([prop for prop in vars(cls).items()])
+        return f"(MemDB) => {[prop for prop in vars(cls).items()]}"
+
+    def __repr__(cls) -> str:
+        return cls.__str__()
 
 
 memory_db = InMemoryDatabase(sql_echo=False)

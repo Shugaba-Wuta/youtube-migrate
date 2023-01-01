@@ -26,6 +26,8 @@ from .utilities import (
     get_gapi_build,
     migrate_playlist_in_background,
     test_getting_db_session,
+    test_getting_db_session2,
+    celery_app,
 )
 from database.in_memory_db_models import Playlist, Owner, PlaylistItem
 from database.in_memory_db import InMemoryDatabase
@@ -141,4 +143,12 @@ async def after_signing_into_destination_acct(
 
 @playlists_router.get("/test")
 async def tests():
-    test_getting_db_session.delay()
+    h = test_getting_db_session2()
+    # test_getting_db_session.delay()
+    return {"id": h}
+
+
+@playlists_router.get("/test/{id}")
+async def status(id_: str):
+    print("\n\n")
+    return celery_app.status(id_)

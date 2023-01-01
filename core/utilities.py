@@ -532,3 +532,12 @@ def test_getting_db_session():
     time.sleep(100)
     print("Done and time is: ", datetime.now().isoformat(), "Start time: ", start_time)
     return {"error": None}
+
+
+@celery_app.task(name="test-creating-db-session2", serializer="pickle")
+async def test_getting_db_session2():
+    start_time = datetime.now().isoformat()
+    time.sleep(50)
+    print("test_getting_db_session2")
+    print("Done and time is: ", datetime.now().isoformat(), "Start time: ", start_time)
+    return {"error": None}
