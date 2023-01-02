@@ -6,7 +6,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Boolean,
-    PrimaryKeyConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
@@ -35,6 +34,7 @@ class Playlist(Base):
     description = Column(Text, default=None)
     privacy_status = Column(String, nullable=False)
     default_lang = Column(String)
+    uploaded_at = Column(String, default=datetime.now().astimezone().isoformat())
     playlist_items = relationship(
         "PlaylistItem", backref="in_same_playlist", lazy="subquery"
     )
@@ -59,10 +59,11 @@ class PlaylistItem(Base):
     note = Column(Text, default="")
     resource_id = Column(String, nullable=False)
     resource_kind = Column(String, nullable=False)
+    uploaded_at = Column(String, default=datetime.now().astimezone().isoformat())
     # relationship from Playlist creates a new attribute 'in_same_playlist'
 
     def __repr__(self):
-        return f"PlaylistItem<'id': {self.id}, 'originating_playlist_id': {self.originating_playlist_id}, 'destintation_playlist_id': {self.destination_playlist_id}, 'update_id': {self.updated_id},  'position': {self.position}>"
+        return f"PlaylistItem<'id': {self.id}, 'originating_playlist_id': {self.originating_playlist_id}, 'destination_playlist_id': {self.destination_playlist_id}, 'update_id': {self.updated_id},  'position': {self.position}>"
 
     def __str__(self):
         return self.__repr__()

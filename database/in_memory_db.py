@@ -75,8 +75,15 @@ class MemDB(metaclass=ThreadSafeSingleton):
     def setup(cls):
         return "Setup function"
 
+    @classmethod
+    def get_session(cls):
+        pass
+
+    @classmethod
+    def get_engine(cls):
+        pass
+
     def __str__(cls) -> str:
-        print([prop for prop in vars(cls).items()])
         return f"(MemDB) => {[prop for prop in vars(cls).items()]}"
 
     def __repr__(cls) -> str:
