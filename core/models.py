@@ -1,13 +1,14 @@
 from datetime import datetime
 import enum
 from pydantic import BaseModel
-from typing import Union, List
+from typing import Union, List, Optional
 
 
 class User(BaseModel):
     email: str
 
     class Config:
+        use_enum_values = True
         orm_mode = True
 
 
@@ -32,6 +33,7 @@ class Review(BaseModel):
     satisfaction_level: str
 
     class Config:
+        use_enum_values = True
         orm_mode = True
 
 
@@ -48,13 +50,13 @@ class CompleteGoogleCredential(GoogleCredential):
     client_secret: str
 
 
-class Token(BaseModel):
-    token: str
-
-
 class Owner(BaseModel):
     user_id: str
-    created_at: Union[datetime, None] = None
+    created_at: Union[str, None] = None
+
+    class Config:
+        use_enum_values = True
+        orm_mode = True
 
 
 class PlaylistItem(BaseModel):
@@ -67,6 +69,11 @@ class PlaylistItem(BaseModel):
     note: Union[str, None] = None
     resource_id: str
     resource_kind: str
+    uploaded_at: Optional[str] = None
+
+    class Config:
+        use_enum_values = True
+        orm_mode = True
 
 
 class PrivacyStatusList(str, enum.Enum):
@@ -83,6 +90,8 @@ class Playlist(BaseModel):
     description: Union[str, None] = None
     privacy_status: PrivacyStatusList
     default_lang: Union[str, None] = None
+    uploaded_at: Optional[None] = None
 
     class Config:
         use_enum_values = True
+        orm_mode = True

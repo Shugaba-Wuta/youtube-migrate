@@ -48,16 +48,14 @@ async def migrate_all_subscriptions(
         """Token, can_migrate and destination_account_logged_in are all set.
         Can_migrate session var determines if the subscriptions can be added.
         It is set in the /handle-token"""
-        decoded_token = await decode_user_token(token)
-        build = await get_authenticated_build(decoded_token)
+        decoded_token = decode_user_token(token)
+        build = get_authenticated_build(decoded_token)
         subscriptions = os.environ.get(request.session.get("subscription-list-id"))
         failed_operations, successful_operations = await migrate_user_subscription(
             build, subscriptions
         )
         total_ops = len(failed_operations) + len(successful_operations)
-        email, profile_picture = await get_email_and_picture_from_session(
-            request.session
-        )
+        email, profile_picture = get_email_and_picture_from_session(request.session)
         """Cleaning up session on server after completing `migrate_user_subscription()`"""
         os.environ.pop(request.session.get("subscription-list-id"), None)
         request.session.pop("subscription-list-id", None)
@@ -105,15 +103,15 @@ async def fetch_all_subscriptions(request: Request, op: str = "migrate"):
         raise HTTPException(
             status_code=401, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
-    decoded_token = await decode_user_token(token)
-    build = await get_authenticated_build(decoded_token)
+    decoded_token = decode_user_token(token)
+    build = get_authenticated_build(decoded_token)
     try:
         subscriptions = await get_all_user_subscription(build)
     except HTTPException:
         raise HTTPException(
             status_code=404, detail={"msg": "Could not fetch subscriptions."}
         )
-    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    email, profile_picture = get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "subscriptions.html",
         {
@@ -141,13 +139,13 @@ async def migrate_all_subscriptions(
     if subscriptions.startswith("subscriptions="):
         # removes prefix("subscriptions=")
         comma_sep_subscription_string = subscriptions.replace("subscriptions=", "")
-        decoded_token = await decode_user_token(token)
-    build = await get_authenticated_build(decoded_token)
+        decoded_token = decode_user_token(token)
+    build = get_authenticated_build(decoded_token)
     failed_operations, successful_operations = await delete_subscriptions(
         build, comma_sep_subscription_string
     )
     total_ops = len(failed_operations) + len(successful_operations)
-    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    email, profile_picture = get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "successful-operation.html",
         {

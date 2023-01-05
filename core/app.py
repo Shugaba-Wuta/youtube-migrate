@@ -50,16 +50,9 @@ from database import (
     main as db_main,
 )
 from database.database import get_db
-from database.in_memory_db import memory_db
-
 
 models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(docs_url=None, redoc_url=None)
-
-
-@app.on_event("startup")
-async def setup_db():
-    await memory_db.setup()
 
 
 app.include_router(subscription_router)
@@ -150,9 +143,9 @@ async def handle_405_exceptions(request, exc):
 
 ##ROOT URL OPERATIONS
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, db: AsyncSession = Depends(memory_db.get_session)):
+async def index(request: Request):
 
-    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    email, profile_picture = get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "email": email, "profile_picture": profile_picture},
@@ -166,10 +159,10 @@ async def login_with_google(
     logged_in: bool = Query(default=False),
 ):
     token = request.session.get("token", None)
-    token_is_valid = await is_token_valid(token)
+    token_is_valid = is_token_valid(token)
     if logged_in and token_is_valid:
         return RedirectResponse(url=redirect)
-    auth_url = await start_google_flow(request, redirect)
+    auth_url = start_google_flow(request, redirect)
     request.session["redirect"] = redirect
     response = RedirectResponse(url=auth_url)
     return response
@@ -201,7 +194,7 @@ async def get_permission(request: Request, db: Session = Depends(get_db)):
         )
     credentials = flow.credentials
     json_credentials = json.loads(credentials.to_json())
-    jwt_token = await make_jwt_from_credential(
+    jwt_token = make_jwt_from_credential(
         credential=CompleteGoogleCredential(**json_credentials)
     )
     user_info = await get_user_email_info(credentials.token)
@@ -209,7 +202,7 @@ async def get_permission(request: Request, db: Session = Depends(get_db)):
         request.session["user_info"] = user_info
         email = user_info[0]
         db_main.store_user_login(db, email=email)
-        db_main.store_user(db, email=email)
+        db_main.store_owner(db, email=email)
     request.session["token"] = jwt_token
     redirect = request.session.get("redirect", "")
     request.session.pop("redirect", None)
@@ -223,7 +216,7 @@ async def redirect_to_handle_token_page(
     request: Request, jwt_token: str, redirect: Union[str, None] = None
 ):
     request.session["token"] = jwt_token
-    valid_url = await is_redirect_url_valid(redirect)
+    valid_url = is_redirect_url_valid(redirect)
     if not valid_url:
         return RedirectResponse(url="/")
         # Can create log for invalid url
@@ -274,7 +267,7 @@ async def review_modal(
     review_text: str = Form(),
     db: Session = Depends(get_db),
 ):
-    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    email, profile_picture = get_email_and_picture_from_session(request.session)
     db_main.store_user_review(
         db=db, review_radio=review_radio, review_text=review_text, email=email
     )
@@ -290,7 +283,7 @@ async def review_modal(
 
 @app.get("/privacy")
 async def privacy_page(request: Request):
-    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    email, profile_picture = get_email_and_picture_from_session(request.session)
     return templates.TemplateResponse(
         "privacy.html",
         {"request": request, "email": email, "profile_picture": profile_picture},

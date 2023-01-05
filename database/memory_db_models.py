@@ -16,7 +16,7 @@ Base = declarative_base()
 class Owner(Base):
     __tablename__ = "owner"
     user_id = Column(String, primary_key=True, unique=True, nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.now())
+    created_at = Column(String, default=datetime.now().astimezone().isoformat())
 
     def __repr__(self):
         return f"Owner<'user_id': {self.user_id}, 'created_at': {self.created_at}>"

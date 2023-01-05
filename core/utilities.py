@@ -2,7 +2,7 @@
 This file contains the helper functions for the path operations.
 """
 # FastAPI and related packages
-from fastapi import HTTPException, Request, Depends
+from fastapi import HTTPException, Request
 
 # Other packages
 import re
@@ -18,44 +18,30 @@ import google.oauth2.credentials
 from googleapiclient.discovery import build, Resource
 import httpx
 import ast
-import asyncio
 from googleapiclient.errors import HttpError
 from uuid import uuid4
 from pydantic import BaseModel
 import backoff
 import time
+from database.memory_db import mem_db
 
 
 # Local imports
-from .models import CompleteGoogleCredential, GoogleCredential, Token
-from database.in_memory_db_models import Owner, Playlist, PlaylistItem
-from database.in_memory_db_main import *
-from database.in_memory_db import memory_db as db
 import core.models as models
 from core.background_app.celery_config import celery_app
 from core.logs.logger_config import logger
-from database.in_memory_db import memory_db
 
 
-GOOGLE_AUTH_SCOPE = [
-    "https://www.googleapis.com/auth/userinfo.profile",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "openid",
-    "https://www.googleapis.com/auth/youtube",
-]
-DELIMITER = "*" * 5
-MAX_BATCH_REQUEST = 1000
-YOUTUBE_API_SERVICE = "youtube"
-API_VERSION = "v3"
 GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333/token")
 SESSIONMIDDLEWARE_SECRET_KEY = os.environ.get("MIDDLEWARE_SECRET_KEY")
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM")
-BASE_PATH = Path(__file__).parent.resolve()
-with open("client_secret.json", "r") as json_file:
-    client_config = json.load(json_file)
-GOOGLE_CLIENT_ID = client_config["web"]["client_id"]
-GOOGLE_CLIENT_SECRET = client_config["web"].get("client_secret", None)
+
+
+DELIMITER = "*" * 5
+MAX_BATCH_REQUEST = 1000
+YOUTUBE_API_SERVICE = "youtube"
+API_VERSION = "v3"
 GOOGLE_API_MAX_RESULTS = 50
 POSSIBLE_REDIRECTS = [
     "subscriptions/migrate",
@@ -69,21 +55,33 @@ POSSIBLE_REDIRECTS = [
     "playlists/fetch?op=delete",
     "playlists/migrated",
 ]
+GOOGLE_AUTH_SCOPE = [
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "openid",
+    "https://www.googleapis.com/auth/youtube",
+]
+
+BASE_PATH = Path(__file__).parent.resolve()
+with open("client_secret.json", "r") as json_file:
+    client_config = json.load(json_file)
+GOOGLE_CLIENT_ID = client_config["web"]["client_id"]
+GOOGLE_CLIENT_SECRET = client_config["web"].get("client_secret", None)
 
 
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
     raise ValueError("Set the API_KEY variable is None")
 
 
-async def make_jwt_from_credential(credential: CompleteGoogleCredential):
-    partial_credential = GoogleCredential(**credential.dict())
-    jwt_credential: Token = jwt.encode(
+def make_jwt_from_credential(credential: models.CompleteGoogleCredential) -> str:
+    partial_credential = models.GoogleCredential(**credential.dict())
+    jwt_credential = jwt.encode(
         payload=partial_credential.dict(), key=JWT_SECRET_KEY, algorithm=JWT_ALGORITHM
     )
     return jwt_credential
 
 
-async def decode_user_token(token: Token):
+def decode_user_token(token: str):
     if token is None:
         raise HTTPException(status_code=404, detail={"msg": "Invalid token"})
     try:
@@ -99,38 +97,38 @@ async def decode_user_token(token: Token):
     return decoded_token
 
 
-async def is_redirect_url_valid(redirect_url):
+def is_redirect_url_valid(redirect_url):
     return redirect_url in POSSIBLE_REDIRECTS
 
 
-async def get_email_and_picture_from_session(session: dict):
+def get_email_and_picture_from_session(session: dict):
     """Receives request.session as a dict session. Returns the email and profile_picture url."""
     email, profile_picture = session.get("user_info", (None, None))
     return email, profile_picture
 
 
-async def is_token_valid(token):
+def is_token_valid(token):
     try:
-        await decode_user_token(token)
+        decode_user_token(token)
     except Exception:
         return False
     return True
 
 
-async def get_gapi_build(request: Request):
+def get_gapi_build(request: Request):
     token = request.session.get("token", False)
-    if not await is_token_valid(token):
+    if not is_token_valid(token):
         raise HTTPException(
             status_code=401, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
 
-    decoded_token = await decode_user_token(token)
-    build = await get_authenticated_build(decoded_token)
+    decoded_token = decode_user_token(token)
+    build = get_authenticated_build(decoded_token)
     return build
 
 
-async def get_authenticated_build(decoded_token):
-    _credentials = CompleteGoogleCredential(
+def get_authenticated_build(decoded_token):
+    _credentials = models.CompleteGoogleCredential(
         **decoded_token, client_id=GOOGLE_CLIENT_ID, client_secret=GOOGLE_CLIENT_SECRET
     )
     dict_credentials = _credentials.dict()
@@ -177,18 +175,15 @@ async def get_all_user_subscription(build) -> dict:
     return subscriptions
 
 
-async def make_resource_owner(
-    request: Request, db: AsyncSession = Depends(db.get_session)
-) -> Owner:
+def make_resource_owner(request: Request) -> models.Owner:
     user_uuid = request.session.get("user-id", False)
-    if not user_uuid:
+    user = mem_db.get_owner(user_uuid)
+    if (not user_uuid) or (not user):
         user_uuid = uuid4().hex
         request.session["user-id"] = user_uuid
-        user = await create_user_id(db, user_uuid)
-        return models.Owner(user_id=user.user_id, created_at=user.created_at)
-    owner: Owner = await get_owner(db, user_uuid)
-    print(f"\n\n\nOwner: {owner}\n\n\n")
-    return models.Owner(user_id=owner.user_id, created_at=owner.created_at)
+        user = mem_db.store_owner(user_uuid)
+        return user
+    return user
 
 
 async def get_user_email_info(token):
@@ -203,7 +198,7 @@ async def get_user_email_info(token):
 
 
 async def retire_token(token: str):
-    credentials = await decode_user_token(token.strip())
+    credentials = decode_user_token(token.strip())
     async with httpx.AsyncClient() as client:
         await client.post(
             "https://oauth2.googleapis.com/revoke",
@@ -228,6 +223,7 @@ async def delete_subscriptions(build, comma_separated_subscriptions: str):
             )
             delete_subscription_request.execute()
         except HttpError as exc:
+            logger.warning("Failed to delete subscription", stack_info=True)
             # Transform reason like `subscriptionforbidden` to `Subscription Forbidden` for app rendering.
             reason_failed: str = exc.error_details[0]["reason"]
             unconcan_reason: list[str] = [
@@ -239,6 +235,9 @@ async def delete_subscriptions(build, comma_separated_subscriptions: str):
             }
             all_failed_report.append(failed_report)
         except Exception as exc:
+            logger.exception(
+                "Encountered unknown exception while attempting to delete subscription"
+            )
             raise HTTPException(
                 status_code=501, detail={"msg": "Failed to Unsubscribe subscription."}
             )
@@ -294,9 +293,9 @@ async def migrate_user_subscription(
     return all_failed_report, successful_operations
 
 
-async def start_google_flow(request: Request, redirect: str) -> Any:
+def start_google_flow(request: Request, redirect: str) -> Any:
     """Starts the Google flow and returns the redirect url"""
-    if not await (is_redirect_url_valid(redirect)):
+    if not is_redirect_url_valid(redirect):
         raise HTTPException(status_code=422, detail={"msg": "Unprocessable Entity."})
     flow = Flow.from_client_secrets_file("client_secret.json", scopes=GOOGLE_AUTH_SCOPE)
     flow.redirect_uri = GOOGLE_AUTH_REDIRECT_URI  #  + f"?redirect={redirect}"
@@ -308,8 +307,8 @@ async def start_google_flow(request: Request, redirect: str) -> Any:
 
 
 async def get_all_user_playlists_from_gapi(build) -> dict:
-    """Fetches playlist resource from YouTube Account (preferably the old YouTube)"""
-    playlists: Resource = build.playlists().list(
+    """Fetches playlist resource from YouTube Account"""
+    playlists = build.playlists().list(
         part="snippet,status,contentDetails",
         mine=True,
         maxResults=GOOGLE_API_MAX_RESULTS,
@@ -317,6 +316,7 @@ async def get_all_user_playlists_from_gapi(build) -> dict:
     try:
         result = playlists.execute()
     except Exception as exc:
+        logger.exception("Failed to fetch playlist from gapi")
         raise HTTPException(
             status_code=404, detail={"msg": "Unable to fetch playlists."}
         )
@@ -348,6 +348,7 @@ async def fetch_all_playlist_items_from_gapi(
             .execute()
         )
     except Exception as exc:
+        logger.exception("Failed to fetch playlist-items from gapi")
         raise HTTPException(
             status_code=404, detail={"msg": "Unable to fetch playlists items."}
         )
@@ -366,14 +367,13 @@ async def fetch_all_playlist_items_from_gapi(
                 .execute()
             )
         except Exception as exc:
+            logger.exception("Failed to fetch playlist-items from gapi")
             raise HTTPException(
                 status_code=404, detail={"msg": "Unable to fetch playlists items."}
             )
 
         response["items"].extend(new_response["items"])
         next_page_token = new_response.get("nextPageToken", False)
-    ##Store playlistItem in database.
-    # async def store_playlist_item()
 
     for playlist_item in response["items"]:
         item = models.PlaylistItem(
@@ -389,15 +389,21 @@ async def fetch_all_playlist_items_from_gapi(
     return playlist_item_list
 
 
-def update_destination_id_for_playlist_items(request_id: str, response, exception=None):
+def update_destination_id_for_playlist_items(
+    request_id: str, response, exception=None
+) -> None:
     if exception:
-        raise exception
+        logger.exception("Update playlist-item callback function", exc_info=exception)
+        raise HTTPException(
+            500,
+            detail={
+                "msg": "Encountered an error while processing your request. Please start the flow again."
+            },
+        )
     destination_playlist_id = response["id"]
     user_id, originating_playlist_id = request_id.split(DELIMITER)
-    asyncio.run(
-        batch_update_destination_id_for_playlist_items(
-            user_id, originating_playlist_id, destination_playlist_id
-        )
+    mem_db.update_playlist_item_destination_ids(
+        user_id, originating_playlist_id, destination_playlist_id
     )
 
 
@@ -425,8 +431,8 @@ def on_give_up_playlist(*args, **kwargs):
     on_backoff=backoff_gapi,
 )
 def create_playlist_gapi(
-    build, playlist_model: models.Playlist, user_id, db
-) -> List[PlaylistItem]:
+    build, playlist_model: models.Playlist, user_id
+) -> List[models.PlaylistItem]:
     body = {
         "snippet": {
             "title": playlist_model.title,
@@ -447,7 +453,7 @@ def create_playlist_gapi(
     else:
         request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
         update_destination_id_for_playlist_items(request_id, response)
-        playlist_items = asyncio.run(get_all_user_playlist(db, user_id))
+        playlist_items = mem_db.get_playlists(user_id)
         print("create_playlist_gapi func(): ", playlist_items)
         return playlist_items
 
@@ -488,18 +494,16 @@ def add_playlist_items_to_gapi(build, playlist_item: models.PlaylistItem):
         pass
 
 
-async def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
+def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
     """Converts a  list of models to a list of dictionary representing the models"""
     return [model.dict() for model in list_of_models]
 
 
-def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id, db):
+def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id):
     for _, playlist_model in enumerate(playlist_model_list):
         print("playlist-model: ", playlist_model.dict())
         try:
-            playlist_items_list: List[PlaylistItem] = create_playlist_gapi(
-                build, playlist_model, user_id, db
-            )
+            playlist_items_list = create_playlist_gapi(build, playlist_model, user_id)
 
             for _, playlist_item in enumerate(playlist_items_list):
                 print("playlist-item: ", playlist_item)
@@ -513,15 +517,13 @@ def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id,
 # Celery tasks
 #
 def playlist_migration_mail(email, user_id, *args, **kwargs):
-    pass
+    print("Email: DONE migrating playlists")
 
 
 @celery_app.task(name="migrate-playlist", serializer="pickle")
 def migrate_playlist_in_background(build, playlist_model_list, email, user_id):
     print("I am about to call Get Session", "\n" * 5)
-    _ = asyncio.run(memory_db.setup())
-    migrate_playlist(build, playlist_model_list, user_id, db=memory_db.get_session())
-    print("DONE migrating playlists")
+    migrate_playlist(build, playlist_model_list, user_id)
     playlist_migration_mail(email, user_id)
     return {}
 

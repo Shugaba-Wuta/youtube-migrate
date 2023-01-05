@@ -4,8 +4,6 @@ from fastapi import (
     Request,
     HTTPException,
     Form,
-    Body,
-    Depends,
     status,
 )
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -15,7 +13,6 @@ import json
 
 
 from .utilities import (
-    create_playlist_gapi,
     get_authenticated_build,
     decode_user_token,
     make_resource_owner,
@@ -27,13 +24,11 @@ from .utilities import (
     migrate_playlist_in_background,
     test_getting_db_session,
     test_getting_db_session2,
-    celery_app,
 )
-from database.in_memory_db_models import Playlist, Owner, PlaylistItem
-from database.in_memory_db import InMemoryDatabase
-from database.in_memory_db_main import *
+from database.memory_db_models import Playlist, Owner, PlaylistItem
 from .config import templates
-from database.in_memory_db import memory_db as db
+
+from database.memory_db import mem_db
 import core.models as models
 from core.redis_storage.main import *
 
@@ -43,17 +38,22 @@ playlists_router = APIRouter(prefix="/playlists", tags=["playlists"])
 
 @playlists_router.get("/fetch")
 async def fetch_all_playlists_on_authorized_account(
-    request: Request, op: str = "migrate"
+    request: Request,
+    op: str = "migrate",
 ):
+    user: models.Owner = make_resource_owner(request)
     token = request.session.get("token", False)
-    if not await is_token_valid(token):
+    print("zhzhzh-" * 100, user)
+
+    if not is_token_valid(token):
         raise HTTPException(
             status_code=401, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
-    decoded_token = await decode_user_token(token)
-    build = await get_authenticated_build(decoded_token)
+    decoded_token = decode_user_token(token)
+    build = get_authenticated_build(decoded_token)
     playlists = await get_all_user_playlists_from_gapi(build)
-    email, profile_picture = await get_email_and_picture_from_session(request.session)
+    email, profile_picture = get_email_and_picture_from_session(request.session)
+    print(user, end="\n\n\n\n")
     return templates.TemplateResponse(
         "playlists.html",
         {
@@ -69,12 +69,10 @@ async def fetch_all_playlists_on_authorized_account(
 
 @playlists_router.post("/migrate", response_class=RedirectResponse)
 async def collate_and_store_all_selected_playlists(
-    request: Request,
-    playlists: Union[str, None] = Form(default=None),
-    db: AsyncSession = Depends(db.get_session),
-    owner: models.Owner = Depends(make_resource_owner),
-    build=Depends(get_gapi_build),
+    request: Request, playlists: Union[str, None] = Form(default=None)
 ):
+    owner = make_resource_owner(request)
+    build = get_gapi_build(request)
     json_playlists = json.loads(playlists)
     playlist_model_list = [
         models.Playlist(
@@ -87,68 +85,32 @@ async def collate_and_store_all_selected_playlists(
         )
         for resource in json_playlists
     ]
-    # Async SQLite storage
-    await batch_insert_playlist(db, playlist_model_list)
+    mem_db.store_playlists(playlist_model_list)
 
-    #
-    # Stage 2: Fetch all playlist_items for each playlist resource and persist
-    #
+    # Fetch all playlist_items for each playlist resource and persist in mem_db
     for playlist_model in playlist_model_list:
-        playlist_items: List[
-            models.PlaylistItem
-        ] = await fetch_all_playlist_items_from_gapi(
+        playlist_items = await fetch_all_playlist_items_from_gapi(
             build=build, playlist_model=playlist_model
         )
-        # Using the aiosqlite model to store selected playlist items
-        await batch_insert_playlist_items_into_mem_db(db, playlist_items)
+        mem_db.store_playlist_items(playlist_items)
     return RedirectResponse(
         url="/logout?redirect=playlists/migrated", status_code=status.HTTP_303_SEE_OTHER
     )
 
 
 @playlists_router.get("/migrated")
-async def after_signing_into_destination_acct(
-    request: Request,
-    db: AsyncSession = Depends(db.get_session),
-    user: models.Owner = Depends(make_resource_owner),
-    build=Depends(get_gapi_build),
-):
+async def after_signing_into_destination_acct(request: Request):
     """Add playlist ad playlist_items to the new YouTube account"""
-    user_id: str = user.user_id
+    owner = make_resource_owner(request)
+    build = get_gapi_build(request)
+    user_id: str = owner.user_id
     if not user_id:
         raise HTTPException(
             status_code=404, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
-    playlists: List[Playlist] = await get_all_user_playlist(db, user_id)
-    email, _ = await get_email_and_picture_from_session(request.session)
+    playlists = mem_db.get_playlists(user_id)
+    email, _ = get_email_and_picture_from_session(request.session)
 
-    playlist_model_list: List[models.Playlist] = [
-        models.Playlist(
-            id=playlist.id,
-            user_id=playlist.user_id,
-            playlist_id=playlist.playlist_id,
-            title=playlist.title,
-            description=playlist.description,
-            privacy_status=playlist.privacy_status,
-            default_lang=playlist.default_lang,
-        )
-        for playlist in playlists
-    ]
-    # Call the celery_app process to create new playlist and add the corresponding playlist_items
-    migrate_playlist_in_background.delay(build, playlist_model_list, email, user_id)
-    # migrate_playlist_in_background(build, playlist_model_list, email, user_id)
-
+    # migrate playlists and send email in the background.
+    # migrate_playlist_in_background.delay(build, playlists, email, user_id)
     return {"waiting": "count-down"}
-
-
-@playlists_router.get("/test")
-async def tests():
-    h = test_getting_db_session2()
-    # test_getting_db_session.delay()
-    return {"id": h}
-
-
-@playlists_router.get("/test/{id}")
-async def status(id_: str):
-    print("\n\n")
-    return celery_app.status(id_)
