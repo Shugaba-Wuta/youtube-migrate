@@ -43,8 +43,6 @@ async def fetch_all_playlists_on_authorized_account(
 ):
     user: models.Owner = make_resource_owner(request)
     token = request.session.get("token", False)
-    print("zhzhzh-" * 100, user)
-
     if not is_token_valid(token):
         raise HTTPException(
             status_code=401, detail={"msg": "Unauthorized. Ensure you are logged in"}
@@ -53,7 +51,6 @@ async def fetch_all_playlists_on_authorized_account(
     build = get_authenticated_build(decoded_token)
     playlists = await get_all_user_playlists_from_gapi(build)
     email, profile_picture = get_email_and_picture_from_session(request.session)
-    print(user, end="\n\n\n\n")
     return templates.TemplateResponse(
         "playlists.html",
         {

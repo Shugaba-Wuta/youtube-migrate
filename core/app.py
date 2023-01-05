@@ -66,7 +66,7 @@ GOOGLE_AUTH_REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5333
 if SESSIONMIDDLEWARE_SECRET_KEY is None:
     raise ValueError("Set the API_KEY variable is None")
 app.mount("/static", StaticFiles(directory="core/static"), name="static")
-# Adding middlewares to app
+# Adding middleware(s) to app
 app.add_middleware(SessionMiddleware, secret_key=SESSIONMIDDLEWARE_SECRET_KEY)
 app.add_middleware(GZipMiddleware, minimum_size=20)
 app.add_middleware(
@@ -81,7 +81,7 @@ app.add_middleware(
 #
 # class based exceptions
 @app.exception_handler(HTTPException)
-async def handle_all_raised_HTTPEexceptions(request, exc: HTTPException):
+async def handle_all_raised_HTTPExceptions(request, exc: HTTPException):
     return templates.TemplateResponse(
         "error.html",
         {"request": request, "status_code": exc.status_code, "msg": exc.detail["msg"]},
