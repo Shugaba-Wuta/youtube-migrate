@@ -12,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Setting the threshold of logger to DEBUG
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.NOTSET)
 
 # Test messages
 # logger.debug("Harmless debug Message", {1: 1})

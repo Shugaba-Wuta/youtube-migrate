@@ -9,7 +9,8 @@ import os
 from datetime import datetime
 import database.memory_db_models as orm
 from core.logs.logger_config import logger
-from fastapi.exceptions import HTTPException
+
+# from fastapi.exceptions import HTTPException
 from core import models
 
 
@@ -35,6 +36,7 @@ class ThreadSafeSingleton(type):
 class MemDB(metaclass=ThreadSafeSingleton):
     def __init__(self, sql_echo) -> None:
         self.setup(sql_echo)
+        print("ACCESSING A NEW INSTANCE OF MEMDB", "-" * 100)
 
     @classmethod
     def setup(cls, sql_echo=False) -> None:
@@ -75,12 +77,12 @@ class MemDB(metaclass=ThreadSafeSingleton):
             session.commit()
         except Exception as E:
             logger.exception("Attempted creating a new `Owner`", {"user_id": user_id})
-            raise HTTPException(
-                500,
-                detail={
-                    "msg": "Encountered an Error while processing your request, please restart the process.1"
-                },
-            )
+            # raise HTTPException(
+            #     500,
+            #     detail={
+            #         "msg": "Encountered an Error while processing your request, please restart the process.1"
+            #     },
+            # )
         finally:
             session.close()
 
@@ -118,12 +120,12 @@ class MemDB(metaclass=ThreadSafeSingleton):
             logger.exception(
                 "Attempted storing Playlist", {"playlist_model": playlist_model}
             )
-            raise HTTPException(
-                500,
-                detail={
-                    "msg": "Encountered an Error while processing your request, please restart the process.2"
-                },
-            )
+            # raise HTTPException(
+            #     500,
+            #     detail={
+            #         "msg": "Encountered an Error while processing your request, please restart the process.2"
+            #     },
+            # )
         finally:
             session.close()
 
@@ -140,12 +142,12 @@ class MemDB(metaclass=ThreadSafeSingleton):
             logger.exception(
                 "Attempted storing Playlists", {"playlist_models": playlist_models}
             )
-            raise HTTPException(
-                500,
-                detail={
-                    "msg": "Encountered an Error while processing your request, please restart the process.3"
-                },
-            )
+            # raise HTTPException(
+            #     500,
+            #     detail={
+            #         "msg": "Encountered an Error while processing your request, please restart the process.3"
+            #     },
+            # )
         finally:
             session.close()
 
@@ -184,12 +186,12 @@ class MemDB(metaclass=ThreadSafeSingleton):
                 "Attempted to store playlist-item but failed.",
                 {"playlist-item": playlist_item},
             )
-            raise HTTPException(
-                500,
-                detail={
-                    "msg": "Encountered an Error while processing your request, please restart the process.4"
-                },
-            )
+            # raise HTTPException(
+            #     500,
+            #     detail={
+            #         "msg": "Encountered an Error while processing your request, please restart the process.4"
+            #     },
+            # )
         finally:
             session.close()
 
@@ -208,12 +210,12 @@ class MemDB(metaclass=ThreadSafeSingleton):
                 "Attempted to store playlist-items but failed.",
                 {"playlist-item": playlist_items},
             )
-            raise HTTPException(
-                500,
-                detail={
-                    "msg": "Encountered an Error while processing your request, please restart the process.5"
-                },
-            )
+            # raise HTTPException(
+            #     500,
+            #     detail={
+            #         "msg": "Encountered an Error while processing your request, please restart the process.5"
+            #     },
+            # )
         finally:
             session.close()
 
@@ -241,12 +243,12 @@ class MemDB(metaclass=ThreadSafeSingleton):
                     "destination-playlist-id": new_id,
                 },
             )
-            raise HTTPException(
-                500,
-                detail={
-                    "msg": "Encountered an Error while processing your request, please restart the process.6"
-                },
-            )
+            # raise HTTPException(
+            #     500,
+            #     detail={
+            #         "msg": "Encountered an Error while processing your request, please restart the process.6"
+            #     },
+            # )
         finally:
             session.close()
 

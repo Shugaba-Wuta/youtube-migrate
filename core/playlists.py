@@ -105,12 +105,11 @@ async def after_signing_into_destination_acct(request: Request):
             status_code=404, detail={"msg": "Unauthorized. Ensure you are logged in"}
         )
     playlists = mem_db.get_playlists(user_id)
+    playlist_items = mem_db.get_playlist_items(user_id)
     email, _ = get_email_and_picture_from_session(request.session)
-
     # migrate playlists and send email in the background.
-
     background_migrate = migrate_playlist_in_background.delay(
-        build, playlists, email, user_id
+        build, playlists, email, user_id, mem_db
     )
     # test the background function without celery
     # migrate_playlist_in_background(build, playlists, email, user_id)
@@ -119,5 +118,5 @@ async def after_signing_into_destination_acct(request: Request):
 
 @playlists_router.get("/test")
 async def test(request: Request):
-    test_getting_db_session.delay()
-    return {"note": "Task should start"}
+    test_getting_db_session2.delay(mem_db)
+    return {"note": "Task should start", "db": id(mem_db)}

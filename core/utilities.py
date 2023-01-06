@@ -23,7 +23,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 import backoff
 import time
-from database.memory_db import mem_db
+from database.memory_db import mem_db, MemDB
 from core.redis_storage.redis_db import redis_db
 
 
@@ -334,6 +334,14 @@ async def get_all_user_playlists_from_gapi(build) -> dict:
     return result["items"]
 
 
+def update_playlist_item_destination_ids(
+    playlist_items: List[models.PlaylistItem], playlist_id: str
+):
+    for item in playlist_items:
+        item.originating_playlist_id = playlist_id
+    return playlist_items
+
+
 async def fetch_all_playlist_items_from_gapi(
     build, playlist_model: models.Playlist
 ) -> List[models.PlaylistItem]:
@@ -388,6 +396,9 @@ async def fetch_all_playlist_items_from_gapi(
         )
 
         playlist_item_list.append(item)
+    redis_db.store_playlist_items_redis_db(
+        playlist_model.user_id, playlist_item_list, playlist_model.playlist_id
+    )
     return playlist_item_list
 
 
@@ -438,9 +449,11 @@ def success_playlist_handler(details: dict):
     on_backoff=backoff_playlist_gapi_handler,
     on_giveup=give_up_playlist_handler,
     on_success=success_playlist_handler,
+    base=3,
+    factor=5,
 )
 def create_playlist_gapi(
-    build, playlist_model: models.Playlist, user_id
+    build, playlist_model: models.Playlist, user_id, mem_db: MemDB
 ) -> List[models.PlaylistItem]:
     body = {
         "snippet": {
@@ -455,19 +468,22 @@ def create_playlist_gapi(
             build.playlists().insert(part="id,snippet,status", body=body).execute()
         )
         new_id = response["id"]
+
+        playlist_items = mem_db.get_playlist_items(user_id)
+        print("PLAYLIST ITEMS FROM MEMDB: ", playlist_items)
+        playlist_items = redis_db.get_playlist_items_redis_db(
+            user_id, playlist_model.playlist_id
+        )
+        print("PLAYLIST ITEMS FROM REDIS: ", playlist_items)
+        updated_playlist_items = update_playlist_item_destination_ids(
+            playlist_items, new_id
+        )
+        return updated_playlist_items
     except HttpError as g_exc:
         raise g_exc
     except Exception as exc:
         logger.exception("python exception", {"playlist-model": playlist_model.dict})
         raise exc
-    else:
-        # request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
-        # update_destination_id_for_playlist_items(request_id, response)
-        mem_db.update_playlist_item_destination_ids(
-            user_id, playlist_model.playlist_id, new_id
-        )
-        playlist_items = mem_db.get_playlist_items(user_id)
-        return playlist_items
 
 
 def backoff_playlist_item_gapi_handler(details: dict):
@@ -525,6 +541,8 @@ def success_playlist_item_handler(details: dict):
     on_backoff=backoff_playlist_item_gapi_handler,
     on_giveup=give_up_playlist_item_handler,
     on_success=success_playlist_item_handler,
+    base=3,
+    factor=5,
 )
 def add_playlist_items_to_gapi(
     build, playlist_item: models.PlaylistItem, playlist: models.Playlist
@@ -538,39 +556,30 @@ def add_playlist_items_to_gapi(
             },
             "position": playlist_item.position,
         },
+        "id": playlist_item.destination_playlist_id,
         "contentDetails": {"note": playlist_item.note},
     }
+    print("\n\n\n\nid", playlist_item.destination_playlist_id)
 
     try:
         response = (
             build.playlistItems()
-            .insert(part="snippet,contentDetails", body=body)
+            .insert(part="snippet,contentDetails,id", body=body)
             .execute()
         )
 
     except HttpError as gexc:
+        print("\n\n\nG Exception \n", gexc)
         raise gexc
     except Exception as exc:
         logger.exception("Python error", {"playlist-item": playlist_item.dict()})
         raise exc
-    else:
-        pass
+    print("created playlist item", playlist_item)
 
 
 def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
     """Converts a  list of models to a list of dictionary representing the models"""
     return [model.dict() for model in list_of_models]
-
-
-def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id):
-    for playlist_model in playlist_model_list:
-        try:
-            playlist_items = create_playlist_gapi(build, playlist_model, user_id)
-            for playlist_item in playlist_items:
-                add_playlist_items_to_gapi(build, playlist_item, playlist_model)
-
-        except Exception as e:
-            raise e
 
 
 def playlist_migration_mail(email, user_id, *args, **kwargs):
@@ -583,8 +592,16 @@ def playlist_migration_mail(email, user_id, *args, **kwargs):
 
 
 @celery_app.task(name="migrate-playlist", serializer="pickle")
-def migrate_playlist_in_background(build, playlist_model_list, email, user_id):
-    migrate_playlist(build, playlist_model_list, user_id)
+def migrate_playlist_in_background(build, playlist_model_list, email, user_id, db):
+    # migrate_playlist(build, playlist_model_list, user_id)
+    for playlist_model in playlist_model_list:
+        try:
+            playlist_items = create_playlist_gapi(build, playlist_model, user_id, db)
+            for playlist_item in playlist_items:
+                add_playlist_items_to_gapi(build, playlist_item, playlist_model)
+
+        except Exception as e:
+            raise e
     email_status = playlist_migration_mail(email, user_id)
     return email_status
 
@@ -595,5 +612,7 @@ def test_getting_db_session():
 
 
 @celery_app.task(name="test-creating-db-session2", serializer="pickle")
-async def test_getting_db_session2():
-    pass
+def test_getting_db_session2(db):
+    print("TESTING CELERY TASK OUTPUT")
+    logger.debug("JUST A DEBUG")
+    return mem_db.get_owner("1234567890"), "Owner:id:123467890", f"db-id: {id(db)}"
