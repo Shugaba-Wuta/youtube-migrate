@@ -62,6 +62,7 @@ class Owner(BaseModel):
 class PlaylistItem(BaseModel):
     id: Union[int, None] = None
     user_id: str
+    title: str
     originating_playlist_id: str
     destination_playlist_id: Union[str, None] = None
     updated_id: bool = False
@@ -90,7 +91,7 @@ class Playlist(BaseModel):
     description: Union[str, None] = None
     privacy_status: PrivacyStatusList
     default_lang: Union[str, None] = None
-    uploaded_at: Optional[None] = None
+    uploaded_at: Optional[str] = None
 
     class Config:
         use_enum_values = True

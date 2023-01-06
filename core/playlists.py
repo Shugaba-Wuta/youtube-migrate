@@ -30,7 +30,6 @@ from .config import templates
 
 from database.memory_db import mem_db
 import core.models as models
-from core.redis_storage.main import *
 
 
 playlists_router = APIRouter(prefix="/playlists", tags=["playlists"])
@@ -109,5 +108,16 @@ async def after_signing_into_destination_acct(request: Request):
     email, _ = get_email_and_picture_from_session(request.session)
 
     # migrate playlists and send email in the background.
-    # migrate_playlist_in_background.delay(build, playlists, email, user_id)
-    return {"waiting": "count-down"}
+
+    background_migrate = migrate_playlist_in_background.delay(
+        build, playlists, email, user_id
+    )
+    # test the background function without celery
+    # migrate_playlist_in_background(build, playlists, email, user_id)
+    return {"waiting": "count-down", "background": background_migrate.id}
+
+
+@playlists_router.get("/test")
+async def test(request: Request):
+    test_getting_db_session.delay()
+    return {"note": "Task should start"}

@@ -4,7 +4,7 @@ import logging
 # Create and configure logger
 logging.basicConfig(
     filename=f"program logs.log",
-    format="%(asctime)s - %(levelname)s - %(message)s args:%(args)s - %(pathname)s line: %(lineno)d\n\n\n",
+    format="\n\n\n\n%(asctime)s - %(levelname)s - %(message)s args:%(args)s - %(pathname)s line: %(lineno)d\n",
     filemode="a",
 )
 

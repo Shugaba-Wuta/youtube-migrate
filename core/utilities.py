@@ -24,6 +24,7 @@ from pydantic import BaseModel
 import backoff
 import time
 from database.memory_db import mem_db
+from core.redis_storage.redis_db import redis_db
 
 
 # Local imports
@@ -381,6 +382,7 @@ async def fetch_all_playlist_items_from_gapi(
             position=playlist_item["snippet"]["position"],
             note=playlist_item["contentDetails"].get("note", None),
             user_id=playlist_model.user_id,
+            title=playlist_item["snippet"]["title"],
             resource_id=playlist_item["snippet"]["resourceId"]["videoId"],
             resource_kind=playlist_item["snippet"]["resourceId"]["kind"],
         )
@@ -389,46 +391,53 @@ async def fetch_all_playlist_items_from_gapi(
     return playlist_item_list
 
 
-def update_destination_id_for_playlist_items(
-    request_id: str, response, exception=None
-) -> None:
-    if exception:
-        logger.exception("Update playlist-item callback function", exc_info=exception)
-        raise HTTPException(
-            500,
-            detail={
-                "msg": "Encountered an error while processing your request. Please start the flow again."
-            },
-        )
-    destination_playlist_id = response["id"]
-    user_id, originating_playlist_id = request_id.split(DELIMITER)
-    mem_db.update_playlist_item_destination_ids(
-        user_id, originating_playlist_id, destination_playlist_id
+def backoff_playlist_gapi_handler(details: dict):
+    logger.debug(
+        f"Couldn't add playlist with the following details: {details.get('args')} to gapi because of the following exception:\n{details.get('exception')}"
     )
 
 
-def backoff_gapi(*args, **kwargs):
-    logger.info(
-        "Call to google api failed",
-        {"args from gapi call ": args, "kwargs from gapi call ": kwargs},
-        stack_info=True,
+def give_up_playlist_handler(details: dict):
+    logger.exception(
+        f"Couldn't add playlist with the following details: {details.get('args'), details.get('kwargs')} to gapi because of the following exception:\n{details.get('exception')}"
     )
-    print(f"\n\n\n {kwargs, args} \n\n\n")
+    # Get the playlist model and user id from the function signature
+    playlist: models.Playlist = (details.get("kwargs", [])).get(
+        "playlist_model"
+    ) or details.get("args")[1]
+    user_id = (
+        (details.get("kwargs", [])).get("user_id")
+        or details.get("args")[2]
+        or playlist.user_id
+    )
+    redis_db.store_playlist_migrate_status(
+        user_id, playlist.playlist_id, playlist.title, "Failed"
+    )
 
 
-def on_give_up_playlist(*args, **kwargs):
-    logger.error(
-        "Create Playlist backoff failed",
-        {"args from create playlist: ": args, "kwargs from create playlist": kwargs},
+def success_playlist_handler(details: dict):
+    # Get the playlist model and user id from the function signature
+    playlist: models.Playlist = (details.get("kwargs", [])).get(
+        "playlist_model"
+    ) or details.get("args")[1]
+    user_id = (
+        (details.get("kwargs", [])).get("user_id")
+        or details.get("args")[2]
+        or playlist.user_id
+    )
+    redis_db.store_playlist_migrate_status(
+        user_id, playlist.playlist_id, playlist.title, "Succeeded"
     )
 
 
 @backoff.on_exception(
-    backoff.expo(factor=3),
+    backoff.expo,
     [HttpError],
     max_tries=5,
     jitter=backoff.full_jitter,
-    on_backoff=backoff_gapi,
+    on_backoff=backoff_playlist_gapi_handler,
+    on_giveup=give_up_playlist_handler,
+    on_success=success_playlist_handler,
 )
 def create_playlist_gapi(
     build, playlist_model: models.Playlist, user_id
@@ -445,27 +454,81 @@ def create_playlist_gapi(
         response = (
             build.playlists().insert(part="id,snippet,status", body=body).execute()
         )
+        new_id = response["id"]
     except HttpError as g_exc:
         raise g_exc
     except Exception as exc:
         logger.exception("python exception", {"playlist-model": playlist_model.dict})
         raise exc
     else:
-        request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
-        update_destination_id_for_playlist_items(request_id, response)
-        playlist_items = mem_db.get_playlists(user_id)
-        print("create_playlist_gapi func(): ", playlist_items)
+        # request_id = playlist_model.user_id + DELIMITER + playlist_model.playlist_id
+        # update_destination_id_for_playlist_items(request_id, response)
+        mem_db.update_playlist_item_destination_ids(
+            user_id, playlist_model.playlist_id, new_id
+        )
+        playlist_items = mem_db.get_playlist_items(user_id)
         return playlist_items
 
 
+def backoff_playlist_item_gapi_handler(details: dict):
+    logger.debug(
+        f"Couldn't add playlist-item with the following details: {details.get('args')} to gapi because of the following exception:\n{details.get('exception')}"
+    )
+
+
+def give_up_playlist_item_handler(details: dict):
+    logger.exception(
+        f"Couldn't add playlist-item with the following details: {details.get('args'), details.get('kwargs')} to gapi because of the following exception:\n{details.get('exception')}"
+    )
+    # Get the playlist-item model and user id from the function signature
+    playlist_item: models.PlaylistItem = (details.get("kwargs", [])).get(
+        "playlist_item"
+    ) or details.get("args")[1]
+    playlist: models.Playlist = (details.get("kwargs", [])).get(
+        "playlist_model"
+    ) or details.get("args")[2]
+    user_id = playlist_item.user_id
+    redis_db.store_playlist_item_migrate_status(
+        user_id,
+        playlist_item.destination_playlist_id,
+        playlist.title,
+        playlist_item.resource_id,
+        playlist_item.title,
+        "Failed",
+    )
+
+
+def success_playlist_item_handler(details: dict):
+    # Get the playlist-item model and user id from the function signature
+    playlist_item: models.PlaylistItem = (details.get("kwargs", [])).get(
+        "playlist_item"
+    ) or details.get("args")[1]
+    playlist: models.Playlist = (details.get("kwargs", [])).get(
+        "playlist_model"
+    ) or details.get("args")[2]
+    user_id = playlist_item.user_id
+    redis_db.store_playlist_item_migrate_status(
+        user_id,
+        playlist_item.destination_playlist_id,
+        playlist.title,
+        playlist_item.resource_id,
+        playlist_item.title,
+        "Failed",
+    )
+
+
 @backoff.on_exception(
-    backoff.expo(factor=3),
+    backoff.expo,
     (HttpError),
     max_tries=5,
     jitter=backoff.full_jitter,
-    on_backoff=backoff_gapi,
+    on_backoff=backoff_playlist_item_gapi_handler,
+    on_giveup=give_up_playlist_item_handler,
+    on_success=success_playlist_item_handler,
 )
-def add_playlist_items_to_gapi(build, playlist_item: models.PlaylistItem):
+def add_playlist_items_to_gapi(
+    build, playlist_item: models.PlaylistItem, playlist: models.Playlist
+):
     body = {
         "snippet": {
             "playlistId": playlist_item.destination_playlist_id,
@@ -500,46 +563,37 @@ def convert_model_list_to_json(list_of_models: BaseModel) -> dict:
 
 
 def migrate_playlist(build, playlist_model_list: List[models.Playlist], user_id):
-    for _, playlist_model in enumerate(playlist_model_list):
-        print("playlist-model: ", playlist_model.dict())
+    for playlist_model in playlist_model_list:
         try:
-            playlist_items_list = create_playlist_gapi(build, playlist_model, user_id)
+            playlist_items = create_playlist_gapi(build, playlist_model, user_id)
+            for playlist_item in playlist_items:
+                add_playlist_items_to_gapi(build, playlist_item, playlist_model)
 
-            for _, playlist_item in enumerate(playlist_items_list):
-                print("playlist-item: ", playlist_item)
-                add_playlist_items_to_gapi(build, playlist_item)
+        except Exception as e:
+            raise e
 
-        except Exception:
-            continue
+
+def playlist_migration_mail(email, user_id, *args, **kwargs):
+    return "Email SENT"
 
 
 #
 # Celery tasks
 #
-def playlist_migration_mail(email, user_id, *args, **kwargs):
-    print("Email: DONE migrating playlists")
 
 
 @celery_app.task(name="migrate-playlist", serializer="pickle")
 def migrate_playlist_in_background(build, playlist_model_list, email, user_id):
-    print("I am about to call Get Session", "\n" * 5)
     migrate_playlist(build, playlist_model_list, user_id)
-    playlist_migration_mail(email, user_id)
-    return {}
+    email_status = playlist_migration_mail(email, user_id)
+    return email_status
 
 
 @celery_app.task(name="test-creating-db-session", serializer="pickle")
 def test_getting_db_session():
-    start_time = datetime.now().isoformat()
-    time.sleep(100)
-    print("Done and time is: ", datetime.now().isoformat(), "Start time: ", start_time)
-    return {"error": None}
+    pass
 
 
 @celery_app.task(name="test-creating-db-session2", serializer="pickle")
 async def test_getting_db_session2():
-    start_time = datetime.now().isoformat()
-    time.sleep(50)
-    print("test_getting_db_session2")
-    print("Done and time is: ", datetime.now().isoformat(), "Start time: ", start_time)
-    return {"error": None}
+    pass

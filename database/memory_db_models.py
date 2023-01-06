@@ -59,6 +59,7 @@ class PlaylistItem(Base):
     note = Column(Text, default="")
     resource_id = Column(String, nullable=False)
     resource_kind = Column(String, nullable=False)
+    title = Column(String, nullable=False)
     uploaded_at = Column(String, default=datetime.now().astimezone().isoformat())
     # relationship from Playlist creates a new attribute 'in_same_playlist'
 
