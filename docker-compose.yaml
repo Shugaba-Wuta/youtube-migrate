@@ -3,7 +3,7 @@ version: "3.8"
 services:
     nginx:
         container_name: nginx
-        image: nginx:1.15-alpine
+        image: nginx:latest
         ports:
             - "80:80"
             - "443:443"
