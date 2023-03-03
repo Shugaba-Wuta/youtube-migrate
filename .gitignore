@@ -167,5 +167,6 @@ ubuntu/
 ubuntu
 trials/
 *.rdb
-*.dump 
+*.dump
 *.pem
+data
